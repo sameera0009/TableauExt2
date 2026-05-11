@@ -5,674 +5,525 @@
 
   <meta charset="utf-8"/>
 
-  <title>Data Pulse KPI Extension</title>
+  <title>Hexbin Dashboard</title>
 
-  <script src="https://tableau.github.io/extensions-api/lib/tableau.extensions.1.latest.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3"></script>
+  <script src="https://tableau.github.io/extensions-api/lib/tableau.extensions.1.latest.js"></script>
 
-  <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
+  <style>
 
-  <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+    *{
+      box-sizing:border-box;
+    }
 
-  <script src="https://cdn.tailwindcss.com"></script>
+    body{
+      margin:0;
+      background:#061222;
+      font-family:Arial, sans-serif;
+      color:white;
+      overflow:hidden;
+    }
+
+    #app{
+      padding:18px;
+      height:100vh;
+      display:flex;
+      flex-direction:column;
+    }
+
+    .header{
+      margin-bottom:18px;
+    }
+
+    .title{
+      font-size:28px;
+      font-weight:700;
+      letter-spacing:1px;
+    }
+
+    .subtitle{
+      opacity:.7;
+      margin-top:4px;
+    }
+
+    .kpiRow{
+      display:flex;
+      gap:16px;
+      margin-bottom:18px;
+    }
+
+    .kpi{
+      flex:1;
+      background:linear-gradient(
+        145deg,
+        #102746,
+        #0b1830
+      );
+
+      border-radius:18px;
+      padding:22px;
+
+      box-shadow:
+      0 8px 30px rgba(0,0,0,.35);
+
+      position:relative;
+      overflow:hidden;
+    }
+
+    .kpi::before{
+      content:"";
+      position:absolute;
+      top:-30px;
+      right:-30px;
+      width:120px;
+      height:120px;
+      border-radius:50%;
+      background:rgba(255,255,255,.05);
+    }
+
+    .kpiLabel{
+      opacity:.7;
+      font-size:14px;
+      margin-bottom:10px;
+    }
+
+    .kpiValue{
+      font-size:34px;
+      font-weight:bold;
+    }
+
+    .main{
+      flex:1;
+      display:flex;
+      gap:18px;
+      min-height:0;
+    }
+
+    #hexMap{
+      flex:3;
+      background:#0c1d35;
+      border-radius:22px;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .sidePanel{
+      flex:1;
+      background:#0c1d35;
+      border-radius:22px;
+      padding:18px;
+      overflow:auto;
+    }
+
+    .panelTitle{
+      font-size:18px;
+      font-weight:700;
+      margin-bottom:18px;
+    }
+
+    .rankItem{
+      background:#102746;
+      border-radius:14px;
+      padding:14px;
+      margin-bottom:12px;
+
+      transition:.25s;
+      cursor:pointer;
+    }
+
+    .rankItem:hover{
+      transform:translateX(5px);
+      background:#16345f;
+    }
+
+    .rankState{
+      font-size:16px;
+      font-weight:700;
+    }
+
+    .rankProfit{
+      opacity:.75;
+      margin-top:4px;
+      font-size:13px;
+    }
+
+    .tooltip{
+      position:absolute;
+      background:#09111d;
+      border:1px solid rgba(255,255,255,.15);
+      padding:12px;
+      border-radius:12px;
+      pointer-events:none;
+      opacity:0;
+      transition:.2s;
+      font-size:13px;
+      z-index:999;
+      min-width:140px;
+    }
+
+  </style>
 
 </head>
 
-<body class="bg-[#050816] text-white overflow-hidden">
+<body>
 
-  <div class="w-full h-screen p-4">
+<div id="app">
 
-    <!-- HEADER -->
+  <div class="header">
 
-    <div class="flex justify-between items-center mb-4">
+    <div class="title">
+      HEXBIN PERFORMANCE DASHBOARD
+    </div>
 
-      <div>
+    <div class="subtitle">
+      Tableau Viz Extension
+    </div>
 
-        <h1 class="text-3xl font-bold">
-          Data Pulse Analytics
-        </h1>
+  </div>
 
-        <div class="text-gray-400">
-          Live Tableau Viz Extension
-        </div>
+  <div class="kpiRow">
 
+    <div class="kpi">
+      <div class="kpiLabel">
+        TOTAL SALES
       </div>
 
-      <div
-        id="status"
-        class="bg-green-500/20 text-green-400 px-4 py-2 rounded-xl">
-
-        Connected
-
+      <div class="kpiValue" id="salesKpi">
+        $0
       </div>
+    </div>
+
+    <div class="kpi">
+      <div class="kpiLabel">
+        TOTAL PROFIT
+      </div>
+
+      <div class="kpiValue" id="profitKpi">
+        $0
+      </div>
+    </div>
+
+    <div class="kpi">
+      <div class="kpiLabel">
+        BEST STATE
+      </div>
+
+      <div class="kpiValue" id="bestState">
+        -
+      </div>
+    </div>
+
+  </div>
+
+  <div class="main">
+
+    <div id="hexMap">
+
+      <div class="tooltip" id="tooltip"></div>
 
     </div>
 
-    <!-- KPI CARDS -->
+    <div class="sidePanel">
 
-    <div class="grid grid-cols-4 gap-4 mb-4">
-
-      <div class="bg-gradient-to-br from-cyan-500 to-blue-700 rounded-2xl p-5 shadow-2xl">
-
-        <div class="text-sm opacity-80">
-          Total Sales
-        </div>
-
-        <div
-          id="salesKpi"
-          class="text-4xl font-bold mt-2">
-
-          0
-
-        </div>
-
+      <div class="panelTitle">
+        TOP PROFIT STATES
       </div>
 
-      <div class="bg-gradient-to-br from-green-500 to-emerald-700 rounded-2xl p-5 shadow-2xl">
-
-        <div class="text-sm opacity-80">
-          Total Profit
-        </div>
-
-        <div
-          id="profitKpi"
-          class="text-4xl font-bold mt-2">
-
-          0
-
-        </div>
-
-      </div>
-
-      <div class="bg-gradient-to-br from-orange-500 to-red-700 rounded-2xl p-5 shadow-2xl">
-
-        <div class="text-sm opacity-80">
-          Orders
-        </div>
-
-        <div
-          id="ordersKpi"
-          class="text-4xl font-bold mt-2">
-
-          0
-
-        </div>
-
-      </div>
-
-      <div class="bg-gradient-to-br from-purple-500 to-pink-700 rounded-2xl p-5 shadow-2xl">
-
-        <div class="text-sm opacity-80">
-          Avg Profit Ratio
-        </div>
-
-        <div
-          id="ratioKpi"
-          class="text-4xl font-bold mt-2">
-
-          0%
-
-        </div>
-
-      </div>
-
-    </div>
-
-    <!-- MAIN GRID -->
-
-    <div class="grid grid-cols-12 gap-4 h-[78vh]">
-
-      <!-- LEFT -->
-
-      <div class="col-span-8 flex flex-col gap-4">
-
-        <!-- TOP STATES -->
-
-        <div class="bg-[#0f172a] rounded-2xl p-4 flex-1">
-
-          <div class="flex justify-between items-center mb-3">
-
-            <h2 class="text-xl font-bold">
-              Top States by Sales
-            </h2>
-
-            <div class="text-gray-400 text-sm">
-              Bubble Size = Sales
-            </div>
-
-          </div>
-
-          <div
-            id="bubbleChart"
-            class="w-full h-[320px]">
-          </div>
-
-        </div>
-
-        <!-- TREND -->
-
-        <div class="bg-[#0f172a] rounded-2xl p-4 flex-1">
-
-          <div class="flex justify-between items-center mb-3">
-
-            <h2 class="text-xl font-bold">
-              Profit Distribution
-            </h2>
-
-          </div>
-
-          <div
-            id="barChart"
-            class="w-full h-[320px]">
-          </div>
-
-        </div>
-
-      </div>
-
-      <!-- RIGHT -->
-
-      <div class="col-span-4 flex flex-col gap-4">
-
-        <!-- TOP PERFORMERS -->
-
-        <div class="bg-[#0f172a] rounded-2xl p-4">
-
-          <h2 class="text-xl font-bold mb-4">
-            Top Performers
-          </h2>
-
-          <div
-            id="topPerformers"
-            class="space-y-3">
-          </div>
-
-        </div>
-
-        <!-- INSIGHTS -->
-
-        <div class="bg-[#0f172a] rounded-2xl p-4 flex-1">
-
-          <h2 class="text-xl font-bold mb-4">
-            Smart Insights
-          </h2>
-
-          <div
-            id="insights"
-            class="space-y-4 text-sm">
-          </div>
-
-        </div>
-
-      </div>
+      <div id="ranking"></div>
 
     </div>
 
   </div>
 
-  <script>
+</div>
 
-    let worksheet;
+<script>
 
-    async function init() {
+let worksheet;
 
-      try {
+window.onload = async () => {
 
-        await tableau.extensions.initializeAsync();
+  try{
 
-        worksheet =
-          tableau.extensions.worksheetContent.worksheet;
+    await tableau.extensions.initializeAsync();
 
-        console.log("Connected");
+    worksheet =
+      tableau.extensions.worksheetContent.worksheet;
 
-        await loadData();
+    worksheet.addEventListener(
+      tableau.TableauEventType.SummaryDataChanged,
+      loadData
+    );
 
-        worksheet.addEventListener(
-          tableau.TableauEventType.SummaryDataChanged,
-          loadData
-        );
+    loadData();
 
-      } catch (err) {
+  }catch(err){
 
-        console.error(err);
+    console.error(err);
 
-        document.getElementById("status")
-          .innerHTML = "Connection Failed";
-      }
-    }
+    alert(
+      "Extension initialization failed"
+    );
+  }
+};
 
-    async function loadData() {
+async function loadData(){
 
-      try {
+  const dataReader =
+    await worksheet.getSummaryDataReaderAsync();
 
-        const reader =
-          await worksheet.getSummaryDataReaderAsync();
+  let rows = [];
 
-        const page =
-          await reader.getPageAsync(0);
+  for(let p=0; p<dataReader.pageCount; p++){
 
-        const columns =
-          reader.columns.map(c => c.fieldName);
+    const page =
+      await dataReader.getPageAsync(p);
 
-        const rows =
-          page.data;
+    rows = rows.concat(page.data);
+  }
 
-        const data = [];
+  const columns = dataReader.columns;
 
-        rows.forEach(r => {
+  await dataReader.releaseAsync();
 
-          const obj = {};
+  const stateIndex =
+    columns.findIndex(
+      c => c.fieldName.includes("State")
+    );
 
-          columns.forEach((c, i) => {
+  const salesIndex =
+    columns.findIndex(
+      c => c.fieldName.includes("Sales")
+    );
 
-            obj[c] = r[i].value;
-          });
+  const profitIndex =
+    columns.findIndex(
+      c => c.fieldName.includes("Profit")
+    );
 
-          data.push(obj);
-        });
+  const data = rows.map(r => ({
 
-        console.log(data);
+    state:
+      r[stateIndex]?.formattedValue || "",
 
-        processData(data);
+    sales:
+      +r[salesIndex]?.value || 0,
 
-      } catch (err) {
+    profit:
+      +r[profitIndex]?.value || 0
 
-        console.error(err);
-      }
-    }
+  }));
 
-    function findField(columns, names) {
+  render(data);
+}
 
-      return columns.find(c =>
+function render(data){
 
-        names.some(n =>
-          c.toLowerCase().includes(n)
-        )
-      );
-    }
+  renderKPIs(data);
 
-    function processData(data) {
+  renderRanking(data);
 
-      if (!data.length) return;
+  renderHexMap(data);
 
-      const cols =
-        Object.keys(data[0]);
+  gsap.from(".kpi",{
+    y:40,
+    opacity:0,
+    duration:1,
+    stagger:.12
+  });
 
-      const salesField =
-        findField(cols, ["sales"]);
+}
 
-      const profitField =
-        findField(cols, ["profit"]);
+function renderKPIs(data){
 
-      const stateField =
-        findField(cols, ["state"]);
+  const totalSales =
+    data.reduce((a,b)=>a+b.sales,0);
 
-      const orderField =
-        findField(cols, ["order"]);
+  const totalProfit =
+    data.reduce((a,b)=>a+b.profit,0);
 
-      console.log({
-        salesField,
-        profitField,
-        stateField
-      });
-
-      let totalSales = 0;
-      let totalProfit = 0;
-
-      const stateAgg = {};
-
-      data.forEach(d => {
-
-        const sales =
-          Number(d[salesField]) || 0;
-
-        const profit =
-          Number(d[profitField]) || 0;
-
-        const state =
-          d[stateField] || "Unknown";
-
-        totalSales += sales;
-        totalProfit += profit;
-
-        if (!stateAgg[state]) {
-
-          stateAgg[state] = {
+  const best =
+    [...data]
+    .sort((a,b)=>b.profit-a.profit)[0];
 
-            sales: 0,
-            profit: 0
-          };
-        }
-
-        stateAgg[state].sales += sales;
-        stateAgg[state].profit += profit;
-      });
+  document.getElementById("salesKpi")
+    .innerText =
+      "$" + Math.round(totalSales)
+      .toLocaleString();
 
-      updateKpis(
-        totalSales,
-        totalProfit,
-        data.length
-      );
+  document.getElementById("profitKpi")
+    .innerText =
+      "$" + Math.round(totalProfit)
+      .toLocaleString();
 
-      renderBubble(stateAgg);
+  document.getElementById("bestState")
+    .innerText =
+      best?.state || "-";
+}
 
-      renderBar(stateAgg);
+function renderRanking(data){
 
-      renderTop(stateAgg);
+  const container =
+    document.getElementById("ranking");
 
-      renderInsights(
-        totalSales,
-        totalProfit,
-        stateAgg
-      );
-    }
+  container.innerHTML = "";
 
-    function updateKpis(
-      sales,
-      profit,
-      orders
-    ) {
+  data
+    .sort((a,b)=>b.profit-a.profit)
+    .slice(0,10)
+    .forEach((d,i)=>{
 
-      document.getElementById(
-        "salesKpi"
-      ).innerText =
-        "$" + Math.round(sales).toLocaleString();
+      container.innerHTML += `
 
-      document.getElementById(
-        "profitKpi"
-      ).innerText =
-        "$" + Math.round(profit).toLocaleString();
+        <div class="rankItem">
 
-      document.getElementById(
-        "ordersKpi"
-      ).innerText =
-        orders.toLocaleString();
-
-      const ratio =
-        ((profit / sales) * 100)
-        .toFixed(1);
-
-      document.getElementById(
-        "ratioKpi"
-      ).innerText =
-        ratio + "%";
-
-      gsap.from(
-        ".text-4xl",
-        {
-          duration: 1,
-          y: 20,
-          opacity: 0,
-          stagger: 0.1
-        }
-      );
-    }
-
-    function renderBubble(stateAgg) {
-
-      const chart =
-        echarts.init(
-          document.getElementById(
-            "bubbleChart"
-          )
-        );
-
-      const data =
-        Object.entries(stateAgg)
-          .map(([k, v]) => ({
-
-            name: k,
-
-            value: [
-              v.sales,
-              v.profit,
-              v.sales
-            ]
-          }))
-          .slice(0, 20);
-
-      chart.setOption({
-
-        backgroundColor: "transparent",
-
-        tooltip: {},
-
-        xAxis: {
-          name: "Sales"
-        },
-
-        yAxis: {
-          name: "Profit"
-        },
-
-        series: [
-
-          {
-
-            type: "scatter",
-
-            symbolSize: d =>
-              Math.sqrt(d[2]) / 12,
-
-            data: data,
-
-            emphasis: {
-              focus: "series"
-            }
-          }
-        ]
-      });
-    }
-
-    function renderBar(stateAgg) {
-
-      const chart =
-        echarts.init(
-          document.getElementById(
-            "barChart"
-          )
-        );
-
-      const sorted =
-        Object.entries(stateAgg)
-          .sort((a, b) =>
-
-            b[1].profit -
-            a[1].profit
-          )
-          .slice(0, 10);
-
-      chart.setOption({
-
-        backgroundColor: "transparent",
-
-        tooltip: {},
-
-        xAxis: {
-
-          type: "category",
-
-          data:
-            sorted.map(x => x[0]),
-
-          axisLabel: {
-
-            rotate: 25
-          }
-        },
-
-        yAxis: {
-
-          type: "value"
-        },
-
-        series: [
-
-          {
-
-            type: "bar",
-
-            data:
-              sorted.map(
-                x => x[1].profit
-              ),
-
-            barWidth: "55%"
-          }
-        ]
-      });
-    }
-
-    function renderTop(stateAgg) {
-
-      const container =
-        document.getElementById(
-          "topPerformers"
-        );
-
-      container.innerHTML = "";
-
-      const sorted =
-        Object.entries(stateAgg)
-          .sort((a, b) =>
-
-            b[1].sales -
-            a[1].sales
-          )
-          .slice(0, 5);
-
-      sorted.forEach((x, i) => {
-
-        const div =
-          document.createElement("div");
-
-        div.className =
-          "bg-[#1e293b] p-4 rounded-xl";
-
-        div.innerHTML = `
-
-          <div class="flex justify-between">
-
-            <div>
-
-              <div class="font-bold">
-                #${i + 1} ${x[0]}
-              </div>
-
-              <div class="text-gray-400 text-sm">
-                Profit:
-                $${Math.round(
-                  x[1].profit
-                ).toLocaleString()}
-              </div>
-
-            </div>
-
-            <div class="text-cyan-400 font-bold">
-
-              $${Math.round(
-                x[1].sales
-              ).toLocaleString()}
-
-            </div>
-
+          <div class="rankState">
+            #${i+1} ${d.state}
           </div>
+
+          <div class="rankProfit">
+            Profit:
+            $${Math.round(d.profit)
+            .toLocaleString()}
+          </div>
+
+        </div>
+      `;
+    });
+}
+
+function renderHexMap(data){
+
+  const container =
+    document.getElementById("hexMap");
+
+  const tooltip =
+    document.getElementById("tooltip");
+
+  container.innerHTML =
+    '<div class="tooltip" id="tooltip"></div>';
+
+  const width =
+    container.clientWidth;
+
+  const height =
+    container.clientHeight;
+
+  const svg =
+    d3.select(container)
+    .append("svg")
+    .attr("width",width)
+    .attr("height",height);
+
+  const cols = 8;
+
+  const maxSales =
+    d3.max(data,d=>d.sales);
+
+  data.forEach((d,i)=>{
+
+    const x =
+      (i % cols) * 120 + 90;
+
+    const y =
+      Math.floor(i/cols)*100 + 90;
+
+    const radius =
+      22 + (d.sales/maxSales)*30;
+
+    const color =
+      d.profit >= 0
+      ? "#22c55e"
+      : "#ef4444";
+
+    svg
+      .append("polygon")
+      .attr("points",hexagon(x,y,radius))
+      .attr("fill",color)
+      .attr("stroke","white")
+      .attr("stroke-width",2)
+      .attr("opacity",0.9)
+      .style("cursor","pointer")
+
+      .on("mouseover",(event)=>{
+
+        tooltip.style.opacity = 1;
+
+        tooltip.innerHTML = `
+
+          <b>${d.state}</b><br/><br/>
+
+          Sales:
+          $${Math.round(d.sales)
+          .toLocaleString()}<br/>
+
+          Profit:
+          $${Math.round(d.profit)
+          .toLocaleString()}
         `;
+      })
 
-        container.appendChild(div);
+      .on("mousemove",(event)=>{
+
+        tooltip.style.left =
+          event.offsetX + 20 + "px";
+
+        tooltip.style.top =
+          event.offsetY + 20 + "px";
+      })
+
+      .on("mouseout",()=>{
+
+        tooltip.style.opacity = 0;
       });
-    }
 
-    function renderInsights(
-      sales,
-      profit,
-      stateAgg
-    ) {
+    svg
+      .append("text")
+      .attr("x",x)
+      .attr("y",y+4)
+      .attr("text-anchor","middle")
+      .attr("fill","white")
+      .attr("font-size","11px")
+      .attr("font-weight","bold")
+      .text(
+        d.state.substring(0,2)
+      );
 
-      const container =
-        document.getElementById(
-          "insights"
-        );
+  });
 
-      container.innerHTML = "";
+  gsap.from("polygon",{
+    scale:0,
+    transformOrigin:"center",
+    stagger:.02,
+    duration:.6,
+    ease:"back.out(1.7)"
+  });
 
-      const best =
-        Object.entries(stateAgg)
-          .sort((a, b) =>
+}
 
-            b[1].profit -
-            a[1].profit
-          )[0];
+function hexagon(cx,cy,r){
 
-      const worst =
-        Object.entries(stateAgg)
-          .sort((a, b) =>
+  let points=[];
 
-            a[1].profit -
-            b[1].profit
-          )[0];
+  for(let i=0;i<6;i++){
 
-      const insights = [
+    const angle =
+      Math.PI/3*i;
 
-        `
-          <div class="bg-[#1e293b] p-4 rounded-xl">
-            <div class="font-bold text-green-400">
-              Best Performing State
-            </div>
+    const x =
+      cx + r*Math.cos(angle);
 
-            <div class="mt-2">
-              ${best[0]}
-            </div>
+    const y =
+      cy + r*Math.sin(angle);
 
-            <div class="text-gray-400">
-              Profit:
-              $${Math.round(
-                best[1].profit
-              ).toLocaleString()}
-            </div>
-          </div>
-        `,
+    points.push(x+","+y);
+  }
 
-        `
-          <div class="bg-[#1e293b] p-4 rounded-xl">
-            <div class="font-bold text-red-400">
-              Lowest Performing State
-            </div>
+  return points.join(" ");
+}
 
-            <div class="mt-2">
-              ${worst[0]}
-            </div>
-
-            <div class="text-gray-400">
-              Profit:
-              $${Math.round(
-                worst[1].profit
-              ).toLocaleString()}
-            </div>
-          </div>
-        `,
-
-        `
-          <div class="bg-[#1e293b] p-4 rounded-xl">
-            <div class="font-bold text-cyan-400">
-              Profit Margin
-            </div>
-
-            <div class="mt-2 text-2xl font-bold">
-              ${(
-                (profit / sales) * 100
-              ).toFixed(2)}%
-            </div>
-          </div>
-        `
-      ];
-
-      container.innerHTML =
-        insights.join("");
-    }
-
-    init();
-
-  </script>
+</script>
 
 </body>
 </html>
