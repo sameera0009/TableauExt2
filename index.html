@@ -2,73 +2,105 @@
 <html>
 <head>
     <meta charset="utf-8"/>
-    <title>Hex Zoom Dashboard</title>
+    <title>Hex Map</title>
     <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
     <script src="https://cdn.jsdelivr.net/npm/gsap@3"></script>
     <script src="https://tableau.github.io/extensions-api/lib/tableau.extensions.1.latest.js"></script>
     <style>
-        body { margin: 0; background: #061222; color: white; font-family: sans-serif; overflow: hidden; }
-        #viz-container { width: 100vw; height: 100vh; position: relative; }
-        svg { width: 100%; height: 100%; }
+        body { margin: 0; background: #061222; overflow: hidden; font-family: sans-serif; color: white; }
+        #viz { width: 100vw; height: 100vh; }
         .back-btn {
-            position: absolute; top: 20px; left: 20px; padding: 10px 20px;
-            background: #4dabf7; border: none; color: white; border-radius: 5px;
-            cursor: pointer; display: none; z-index: 100;
+            position: absolute; top: 20px; left: 20px; padding: 10px 18px;
+            background: #4dabf7; color: white; border: none; border-radius: 4px;
+            cursor: pointer; display: none; z-index: 10;
         }
-        .tooltip {
-            position: absolute; background: rgba(0,0,0,0.8); padding: 8px;
-            border-radius: 4px; pointer-events: none; opacity: 0; font-size: 12px;
+        .error-overlay {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            text-align: center; color: #8892b0;
         }
     </style>
 </head>
 <body>
 
 <button class="back-btn" id="backBtn">← Back to Map</button>
-<div id="viz-container">
-    <div class="tooltip" id="tooltip"></div>
-</div>
+<div id="viz"></div>
 
 <script>
 let worksheet;
 let isZoomed = false;
-const container = d3.select("#viz-container");
-const svg = container.append("svg");
-const mainG = svg.append("g"); // Main group for zooming
+const svg = d3.select("#viz").append("svg");
+const mainG = svg.append("g");
 
 window.onload = async () => {
-    await tableau.extensions.initializeAsync();
-    worksheet = tableau.extensions.worksheetContent.worksheet;
-    worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateData);
-    updateData();
-    
-    document.getElementById("backBtn").onclick = resetZoom;
+    try {
+        // 1. Initialize
+        await tableau.extensions.initializeAsync();
+        worksheet = tableau.extensions.worksheetContent.worksheet;
+
+        // 2. Listen for changes
+        worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, loadData);
+
+        // 3. Initial Load
+        loadData();
+    } catch (e) {
+        console.error("Initialization failed", e);
+    }
 };
 
-async function updateData() {
-    const visualSpec = await worksheet.getVisualSpecificationAsync();
-    const marksCard = visualSpec.marksSpecifications[visualSpec.activeMarksSpecificationIndex];
-    const encodingMap = {};
-    marksCard.encodings.forEach(e => encodingMap[e.id] = e.field.name);
+async function loadData() {
+    try {
+        const visualSpec = await worksheet.getVisualSpecificationAsync();
+        const marksCard = visualSpec.marksSpecifications[visualSpec.activeMarksSpecificationIndex];
+        
+        // Map IDs from TREX to actual Field Names
+        const encodingMap = {};
+        marksCard.encodings.forEach(e => {
+            encodingMap[e.id] = e.field.name;
+        });
 
-    const reader = await worksheet.getSummaryDataReaderAsync();
-    const page = await reader.getPageAsync(0); // Fetch first page
-    
-    const data = page.data.map(r => ({
-        state: r[page.columns.find(c => c.fieldName === encodingMap.state).index].formattedValue,
-        sales: +r[page.columns.find(c => c.fieldName === encodingMap.sales).index].value,
-        profit: +r[page.columns.find(c => c.fieldName === encodingMap.profit).index].value
-    }));
+        // Check if fields are actually on the shelves
+        if (!encodingMap.state || !encodingMap.sales || !encodingMap.profit) {
+            d3.select("#viz").html(`
+                <div class="error-overlay">
+                    <h2>No Data Found</h2>
+                    <p>Please drag fields to the <b>State, Sales,</b> and <b>Profit</b> shelves on the Marks Card.</p>
+                </div>`);
+            return;
+        }
 
-    await reader.releaseAsync();
-    renderMap(data);
+        const reader = await worksheet.getSummaryDataReaderAsync();
+        const page = await reader.getPageAsync(0);
+        
+        // Convert Tableau data to JS objects
+        const data = page.data.map(row => {
+            const rowObj = {};
+            page.columns.forEach((col, i) => {
+                rowObj[col.fieldName] = row[i];
+            });
+
+            return {
+                state: rowObj[encodingMap.state].formattedValue,
+                sales: +rowObj[encodingMap.sales].value,
+                profit: +rowObj[encodingMap.profit].value
+            };
+        });
+
+        await reader.releaseAsync();
+        render(data);
+
+    } catch (err) {
+        console.error("Data Load Error:", err);
+    }
 }
 
-function renderMap(data) {
+function render(data) {
     mainG.selectAll("*").remove();
+    d3.select(".error-overlay").remove();
+
     const width = window.innerWidth;
     const height = window.innerHeight;
     const cols = 8;
-    const spacing = 90;
+    const spacing = 100;
 
     const hexes = mainG.selectAll(".hex")
         .data(data)
@@ -77,22 +109,22 @@ function renderMap(data) {
         .attr("transform", (d, i) => {
             const row = Math.floor(i / cols);
             const x = (i % cols) * spacing + (row % 2 === 0 ? 0 : spacing/2) + 100;
-            const y = row * (spacing * 0.85) + 100;
+            const y = row * (spacing * 0.8) + 100;
             return `translate(${x}, ${y})`;
         })
-        .on("click", function(event, d) { zoomIn(d3.select(this), d); });
+        .on("click", function(e, d) { zoomIn(d3.select(this), d); });
 
     hexes.append("polygon")
-        .attr("points", getHexPoints(0, 0, 40))
+        .attr("points", getHexPoints(0, 0, 45))
         .attr("fill", d => d.profit >= 0 ? "#22c55e" : "#ef4444")
         .attr("stroke", "#061222")
-        .attr("stroke-width", 2)
-        .style("cursor", "pointer");
+        .attr("stroke-width", 3);
 
     hexes.append("text")
         .attr("text-anchor", "middle")
         .attr("dy", "5")
         .attr("fill", "white")
+        .style("font-weight", "bold")
         .style("pointer-events", "none")
         .text(d => d.state.substring(0, 2).toUpperCase());
 }
@@ -100,55 +132,42 @@ function renderMap(data) {
 function zoomIn(element, data) {
     if (isZoomed) return;
     isZoomed = true;
-    
     document.getElementById("backBtn").style.display = "block";
-    const transform = d3.select(element.node()).attr("transform");
-    const coords = transform.match(/translate\(([^,]+),([^)]+)\)/);
+
+    const transform = element.attr("transform");
+    const coords = transform.match(/translate\(([^, ]+)[, ]+([^)]+)\)/);
     const x = +coords[1], y = +coords[2];
 
-    const scale = 4;
-    const screenX = window.innerWidth / 2;
-    const screenY = window.innerHeight / 2;
+    const scale = 5;
+    const centerX = window.innerWidth / 2;
+    const centerY = window.innerHeight / 2;
 
     gsap.to(mainG.node(), {
         duration: 0.8,
-        attr: { transform: `translate(${screenX - x * scale}, ${screenY - y * scale}) scale(${scale})` },
-        ease: "power2.inOut"
+        attr: { transform: `translate(${centerX - x * scale}, ${centerY - y * scale}) scale(${scale})` },
+        ease: "power3.inOut"
     });
 
-    // Add Donut Chart inside the hexagon
-    const donutG = element.append("g").attr("class", "donut-chart").attr("opacity", 0);
-    const pieData = [
-        { label: 'Profit', value: Math.max(0, data.profit), color: '#ffffff' },
-        { label: 'Remaining', value: Math.max(0, data.sales - data.profit), color: 'rgba(255,255,255,0.2)' }
-    ];
-
-    const pie = d3.pie().value(d => d.value);
+    // Create Donut
+    const donutG = element.append("g").attr("class", "donut").attr("opacity", 0);
+    const pieData = [{v: Math.max(0, data.profit), c: "white"}, {v: Math.max(1, data.sales), c: "rgba(255,255,255,0.2)"}];
     const arc = d3.arc().innerRadius(15).outerRadius(25);
+    const pie = d3.pie().value(d => d.v).sort(null);
 
-    donutG.selectAll("path")
-        .data(pie(pieData))
-        .enter().append("path")
-        .attr("d", arc)
-        .attr("fill", d => d.data.color);
+    donutG.selectAll("path").data(pie(pieData)).enter()
+        .append("path").attr("d", arc).attr("fill", d => d.data.c);
 
-    gsap.to(donutG.node(), { opacity: 1, duration: 0.4, delay: 0.5 });
-    element.select("text").attr("opacity", 0);
+    gsap.to(donutG.node(), { opacity: 1, duration: 0.4, delay: 0.4 });
+    element.select("text").transition().duration(200).attr("opacity", 0);
 }
 
-function resetZoom() {
+document.getElementById("backBtn").onclick = () => {
     isZoomed = false;
     document.getElementById("backBtn").style.display = "none";
-    
-    gsap.to(mainG.node(), {
-        duration: 0.8,
-        attr: { transform: "translate(0,0) scale(1)" },
-        ease: "power2.inOut"
-    });
-
-    mainG.selectAll(".donut-chart").remove();
+    gsap.to(mainG.node(), { duration: 0.8, attr: { transform: "translate(0,0) scale(1)" }, ease: "power3.inOut" });
+    mainG.selectAll(".donut").remove();
     mainG.selectAll("text").attr("opacity", 1);
-}
+};
 
 function getHexPoints(cx, cy, r) {
     let p = [];
