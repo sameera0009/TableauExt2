@@ -1,208 +1,191 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8"/>
-    <title>Donut Hex Dashboard</title>
+    <title>Donut Viz Extension</title>
     <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
     <script src="https://cdn.jsdelivr.net/npm/gsap@3"></script>
     <script src="https://tableau.github.io/extensions-api/lib/tableau.extensions.1.latest.js"></script>
     <style>
         :root {
-            --bg: #f0f2f5;
-            --card: #ffffff;
-            --primary: #4e79a7;
-            --text: #2c3e50;
+            --bg-color: #f1f5f9;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --accent: #3b82f6;
+            --track: #e2e8f0;
         }
 
         body { 
-            margin: 0; background: var(--bg); color: var(--text); 
-            font-family: 'Segoe UI', Roboto, sans-serif; overflow: hidden; 
+            margin: 0; 
+            background-color: var(--bg-color); 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--text-main);
         }
 
-        #app {
-            display: flex; flex-wrap: wrap; gap: 20px; padding: 30px;
-            height: 100vh; width: 100vw; justify-content: center; align-items: center;
+        #content {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 24px;
+            padding: 40px;
         }
 
         .donut-card {
-            background: var(--card);
-            width: 260px; height: 320px;
-            border-radius: 24px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
-            display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-            position: relative; transition: transform 0.3s ease;
-            border: 1px solid rgba(0,0,0,0.03);
+            background: var(--card-bg);
+            border-radius: 28px;
+            padding: 30px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.03);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 1px solid rgba(0,0,0,0.05);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
         .donut-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.08);
         }
 
-        .state-label {
-            font-size: 18px; font-weight: 700; margin-top: 15px; color: var(--text);
+        .state-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-top: 20px;
         }
 
-        .sales-label {
-            font-size: 14px; opacity: 0.6; margin-top: 4px;
+        .value-subtitle {
+            font-size: 0.9rem;
+            opacity: 0.6;
+            margin-top: 5px;
         }
 
-        .middle-number {
-            font-size: 22px; font-weight: 800; fill: var(--primary);
+        .donut-ring:hover {
+            cursor: pointer;
+            animation: blinker 0.8s linear infinite;
         }
 
-        /* Hover Blink Animation */
-        .donut-path:hover {
-            animation: blink 0.8s infinite;
+        @keyframes blinker {
+            50% { opacity: 0.4; }
         }
 
-        @keyframes blink {
-            0% { opacity: 1; }
-            50% { opacity: 0.6; }
-            100% { opacity: 1; }
-        }
-
-        #debug-msg {
-            position: absolute; top: 20px; background: #ff4757; color: white;
-            padding: 10px 20px; border-radius: 10px; display: none; z-index: 100;
+        .setup-msg {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 100px;
+            color: #64748b;
         }
     </style>
 </head>
 <body>
-
-<div id="debug-msg"></div>
-<div id="app">
-    <!-- Cards will be injected here -->
-</div>
+    <div id="content"></div>
 
 <script>
-let worksheet;
+(function () {
+    window.onload = tableau.extensions.initializeAsync().then(() => {
+        const worksheet = tableau.extensions.worksheetContent.worksheet;
 
-window.onload = async () => {
-    try {
-        await tableau.extensions.initializeAsync();
-        worksheet = tableau.extensions.worksheetContent.worksheet;
-        worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, fetchTableauData);
-        fetchTableauData();
-    } catch (e) {
-        console.error("Extension init failed", e);
+        const updateUI = async () => {
+            const [data, encodings] = await Promise.all([
+                getSummaryData(worksheet),
+                getEncodings(worksheet)
+            ]);
+            render(data, encodings);
+        };
+
+        worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateUI);
+        updateUI();
+    });
+
+    async function getSummaryData(ws) {
+        const reader = await ws.getSummaryDataReaderAsync(undefined, { ignoreSelection: true });
+        let rows = [];
+        for (let i = 0; i < reader.pageCount; i++) {
+            const page = await reader.getPageAsync(i);
+            page.data.forEach(row => {
+                const obj = {};
+                page.columns.forEach((col, idx) => obj[col.fieldName] = row[idx]);
+                rows.push(obj);
+            });
+        }
+        await reader.releaseAsync();
+        return rows;
     }
-};
 
-async function fetchTableauData() {
-    const debug = document.getElementById("debug-msg");
-    try {
-        const visualSpec = await worksheet.getVisualSpecificationAsync();
-        const marksCard = visualSpec.marksSpecifications[visualSpec.activeMarksSpecificationIndex];
-        
-        const encodingMap = {};
-        marksCard.encodings.forEach(e => encodingMap[e.id] = e.field.name);
+    async function getEncodings(ws) {
+        const spec = await ws.getVisualSpecificationAsync();
+        const map = {};
+        if (spec.activeMarksSpecificationIndex >= 0) {
+            const marks = spec.marksSpecifications[spec.activeMarksSpecificationIndex];
+            marks.encodings.forEach(e => map[e.id] = e.field);
+        }
+        return map;
+    }
 
-        if (!encodingMap.state || !encodingMap.sales) {
-            debug.style.display = "block";
-            debug.innerText = "Setup Required: Drag 'State' and 'Sales' to the Marks Card shelves.";
+    function render(data, encodings) {
+        const container = d3.select("#content");
+        container.html("");
+
+        if (!encodings.x || !encodings.text) {
+            container.append("div").attr("class", "setup-msg")
+                .html("<h2>Welcome</h2><p>Drag your <b>Dimension</b> to Text and <b>Measure</b> to X shelf.</p>");
             return;
         }
-        debug.style.display = "none";
 
-        const reader = await worksheet.getSummaryDataReaderAsync();
-        const page = await reader.getPageAsync(0);
-        
-        const data = page.data.map(row => {
-            const rowData = {};
-            page.columns.forEach((col, i) => rowData[col.fieldName] = row[i]);
-            return {
-                state: rowData[encodingMap.state].formattedValue,
-                sales: +rowData[encodingMap.sales].value
-            };
-        });
+        const nameField = encodings.text.name;
+        const valField = encodings.x.name;
+        const maxVal = d3.max(data, d => +d[valField].value) || 1;
 
-        await reader.releaseAsync();
-        renderCards(data);
-    } catch (err) {
-        console.error(err);
-    }
-}
+        data.forEach((d, i) => {
+            const rawVal = +d[valField].value;
+            const percentage = (rawVal / maxVal) * 100;
+            
+            const card = container.append("div").attr("class", "donut-card");
+            const svg = card.append("svg").attr("width", 150).attr("height", 150);
+            const g = svg.append("g").attr("transform", "translate(75,75)");
 
-function renderCards(data) {
-    const container = d3.select("#app");
-    container.selectAll("*").remove();
+            const arc = d3.arc().innerRadius(55).outerRadius(70).cornerRadius(10);
+            const pie = d3.pie().sort(null).value(v => v);
 
-    const maxSales = d3.max(data, d => d.sales);
+            // Background Track
+            g.append("path").datum([100]).attr("d", arc).attr("fill", "var(--track)");
 
-    data.forEach((d, i) => {
-        const card = container.append("div").attr("class", "donut-card");
-        
-        const svg = card.append("svg").attr("width", 160).attr("height", 160);
-        const g = svg.append("g").attr("transform", "translate(80,80)");
+            // Progress Arc
+            const progress = g.append("path")
+                .attr("class", "donut-ring")
+                .attr("fill", "var(--accent)");
 
-        // Donut Logic
-        const radius = 70;
-        const thickness = 12;
-        const arc = d3.arc().innerRadius(radius - thickness).outerRadius(radius).cornerRadius(10);
-        const pie = d3.pie().sort(null).value(val => val);
+            // Percentage Text
+            const pText = g.append("text")
+                .attr("text-anchor", "middle")
+                .attr("dy", ".35em")
+                .style("font-size", "1.4rem").style("font-weight", "800")
+                .text("0%");
 
-        // Background Track
-        g.append("path")
-            .datum([100])
-            .attr("d", arc)
-            .attr("fill", "#eceff1");
+            card.append("div").attr("class", "state-title").text(d[nameField].formattedValue);
+            card.append("div").attr("class", "value-subtitle").text(d[valField].formattedValue);
 
-        // Foreground Arc (Animate this)
-        const foreground = g.append("path")
-            .attr("class", "donut-path")
-            .attr("fill", "#4e79a7");
+            // --- ANIMATIONS ---
+            progress.transition()
+                .duration(1500)
+                .delay(i * 50)
+                .ease(d3.easeExpoOut)
+                .attrTween("d", function() {
+                    const i = d3.interpolate(0, percentage);
+                    return t => arc(pie([i(t), 100 - i(t)])[0]);
+                });
 
-        // Middle Number (Animate this)
-        const text = g.append("text")
-            .attr("class", "middle-number")
-            .attr("text-anchor", "middle")
-            .attr("dy", ".35em")
-            .text("0");
-
-        // Labels
-        card.append("div").attr("class", "state-label").text(d.state);
-        card.append("div").attr("class", "sales-label").text("$" + Math.round(d.sales).toLocaleString());
-
-        // --- ANIMATIONS ---
-        
-        // 1. Animate Donut
-        const targetValue = (d.sales / maxSales) * 100;
-        foreground.transition()
-            .duration(1500)
-            .delay(i * 100)
-            .ease(d3.easeExpoOut)
-            .attrTween("d", function() {
-                const interpolate = d3.interpolate(0, targetValue);
-                return function(t) {
-                    return arc(pie([interpolate(t), 100 - interpolate(t)])[0]);
-                };
+            let counter = { v: 0 };
+            gsap.to(counter, {
+                v: percentage, 
+                duration: 1.5, 
+                delay: (i * 50) / 1000,
+                ease: "expo.out",
+                onUpdate: () => pText.text(Math.round(counter.v) + "%")
             });
 
-        // 2. Animate Number Counter
-        let counter = { val: 0 };
-        gsap.to(counter, {
-            val: targetValue,
-            duration: 1.5,
-            delay: (i * 100) / 1000,
-            ease: "expo.out",
-            onUpdate: () => {
-                text.text(Math.round(counter.val) + "%");
-            }
+            gsap.from(card.node(), { opacity: 0, y: 30, duration: 0.6, delay: i * 0.05 });
         });
-
-        // 3. Card Entrance
-        gsap.from(card.node(), {
-            opacity: 0,
-            y: 30,
-            scale: 0.9,
-            duration: 0.8,
-            delay: i * 0.05,
-            ease: "back.out(1.7)"
-        });
-    });
-}
+    }
+})();
 </script>
 </body>
 </html>
