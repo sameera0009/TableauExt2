@@ -3,9 +3,9 @@
 
 <head>
 
-  <meta charset="utf-8">
+  <meta charset="utf-8"/>
 
-  <title>Hexbin Viz Extension</title>
+  <title>Hexbin US Map</title>
 
   <script src="https://tableau.github.io/extensions-api/lib/tableau.extensions.1.latest.min.js"></script>
 
@@ -17,17 +17,120 @@
 
 </head>
 
-<body class="bg-gray-950 text-white m-0">
+<body class="bg-gray-950 text-white overflow-hidden">
 
-  <div class="p-4">
+  <div class="w-full h-screen p-4">
 
-    <h1 class="text-2xl font-bold mb-4">
-      Hexbin US Map
-    </h1>
+    <!-- HEADER -->
 
-    <div
-      id="chart"
-      class="w-full h-[700px] bg-gray-900 rounded-2xl">
+    <div class="flex justify-between items-center mb-4">
+
+      <div>
+
+        <h1 class="text-3xl font-bold">
+          Hexbin US Analytics
+        </h1>
+
+        <div class="text-gray-400">
+          Color = Profit | Size = Sales
+        </div>
+
+      </div>
+
+      <div class="flex gap-2">
+
+        <button
+          class="legend-btn bg-green-600 px-3 py-1 rounded-lg"
+          data-range="positive">
+
+          Positive Profit
+
+        </button>
+
+        <button
+          class="legend-btn bg-red-600 px-3 py-1 rounded-lg"
+          data-range="negative">
+
+          Negative Profit
+
+        </button>
+
+      </div>
+
+    </div>
+
+    <!-- MAIN GRID -->
+
+    <div class="grid grid-cols-12 gap-4 h-[90vh]">
+
+      <!-- MAP -->
+
+      <div
+        class="col-span-9 bg-gray-900 rounded-2xl p-4 shadow-2xl">
+
+        <div
+          id="chart"
+          class="w-full h-full">
+        </div>
+
+      </div>
+
+      <!-- RIGHT PANEL -->
+
+      <div class="col-span-3 flex flex-col gap-4">
+
+        <!-- DETAIL -->
+
+        <div
+          id="detailPanel"
+          class="bg-gray-900 rounded-2xl p-4">
+
+          <h2 class="text-xl font-bold mb-3">
+            State Details
+          </h2>
+
+          <div
+            id="selectedState"
+            class="text-3xl font-bold text-cyan-400">
+
+            Select State
+
+          </div>
+
+          <div class="mt-4 space-y-2">
+
+            <div>
+              Sales:
+              <span id="salesValue">-</span>
+            </div>
+
+            <div>
+              Profit:
+              <span id="profitValue">-</span>
+            </div>
+
+          </div>
+
+        </div>
+
+        <!-- TOP STATES -->
+
+        <div
+          class="bg-gray-900 rounded-2xl p-4 flex-1">
+
+          <h2 class="text-xl font-bold mb-3">
+            Top Performers
+          </h2>
+
+          <div
+            id="topStates"
+            class="space-y-2">
+          </div>
+
+        </div>
+
+      </div>
+
     </div>
 
   </div>
@@ -35,22 +138,56 @@
   <script>
 
     let worksheet;
+    let chart;
+
+    const stateCoords = {
+
+      "Washington": [80, 70],
+      "Oregon": [80, 120],
+      "California": [80, 220],
+      "Nevada": [150, 180],
+      "Arizona": [170, 260],
+      "Texas": [320, 320],
+      "Colorado": [240, 190],
+      "Florida": [520, 360],
+      "New York": [540, 120],
+      "Illinois": [380, 180],
+      "Georgia": [470, 300]
+
+    };
 
     async function init() {
 
-      await tableau.extensions.initializeAsync();
+      try {
 
-      worksheet =
-        tableau.extensions.worksheetContent.worksheet;
+        await tableau.extensions.initializeAsync();
 
-      console.log("Worksheet:", worksheet.name);
+        worksheet =
+          tableau.extensions.worksheetContent.worksheet;
 
-      loadData();
+        console.log("Initialized");
 
-      worksheet.addEventListener(
-        tableau.TableauEventType.SummaryDataChanged,
-        loadData
-      );
+        chart =
+          echarts.init(
+            document.getElementById("chart")
+          );
+
+        await loadData();
+
+        worksheet.addEventListener(
+          tableau.TableauEventType.SummaryDataChanged,
+          loadData
+        );
+
+      } catch (err) {
+
+        console.error(err);
+
+        document.body.innerHTML =
+          `<div style="color:red;padding:20px">
+            ${err}
+          </div>`;
+      }
     }
 
     async function getEncodingMap() {
@@ -65,88 +202,105 @@
 
       const encodingMap = {};
 
-      for (const encoding of marksCard.encodings) {
+      marksCard.encodings.forEach(e => {
 
-        if (encoding.fields.length > 0) {
+        if (e.fields.length > 0) {
 
-          encodingMap[encoding.id] =
-            encoding.fields[0].field.name;
+          encodingMap[e.id] =
+            e.fields[0].field.name;
         }
-      }
+      });
 
       return encodingMap;
     }
 
     async function loadData() {
 
-      const encodingMap =
-        await getEncodingMap();
+      try {
 
-      console.log(encodingMap);
+        const encodingMap =
+          await getEncodingMap();
 
-      const dataTable =
-        await worksheet.getSummaryDataAsync();
+        console.log("Encodings:", encodingMap);
 
-      const columns =
-        dataTable.columns.map(c => c.fieldName);
+        const reader =
+          await worksheet.getSummaryDataReaderAsync();
 
-      const rows =
-        dataTable.data;
+        const page =
+          await reader.getPageAsync(0);
 
-      const chartData = [];
+        const columns =
+          reader.columns.map(c => c.fieldName);
 
-      rows.forEach(row => {
+        const rows =
+          page.data;
 
-        const rowObj = {};
+        const data = [];
 
-        columns.forEach((col, i) => {
+        rows.forEach(row => {
 
-          rowObj[col] = row[i].value;
+          const obj = {};
+
+          columns.forEach((c, i) => {
+
+            obj[c] = row[i].value;
+          });
+
+          data.push(obj);
         });
 
-        chartData.push(rowObj);
-      });
+        console.log(data);
 
-      renderChart(
-        chartData,
-        encodingMap
-      );
+        renderChart(data, encodingMap);
+
+        renderTopStates(data, encodingMap);
+
+      } catch (err) {
+
+        console.error(err);
+      }
     }
 
     function renderChart(data, encodingMap) {
 
-      const chart =
-        echarts.init(
-          document.getElementById("chart")
-        );
+      const mapData = [];
 
-      const states = [
+      data.forEach(d => {
 
-        { state: "California", x: 100, y: 120 },
-        { state: "Texas", x: 250, y: 250 },
-        { state: "Florida", x: 420, y: 300 },
-        { state: "New York", x: 500, y: 100 }
+        const state =
+          d[encodingMap.state];
 
-      ];
+        if (!stateCoords[state]) return;
 
-      const merged = states.map(s => {
+        const coords =
+          stateCoords[state];
 
-        const d =
-          data.find(
-            x =>
-              x[encodingMap.state] === s.state
-          );
+        mapData.push({
 
-        return {
+          value: coords,
 
-          ...s,
+          state: state,
 
           sales:
-            d?.[encodingMap.sales] || 0,
+            d[encodingMap.sales] || 0,
 
           profit:
-            d?.[encodingMap.profit] || 0
-        };
+            d[encodingMap.profit] || 0,
+
+          symbolSize:
+            Math.sqrt(
+              d[encodingMap.sales] || 1
+            ) / 5,
+
+          itemStyle: {
+
+            color:
+
+              d[encodingMap.profit] >= 0
+                ? "#22c55e"
+                : "#ef4444"
+          }
+        });
       });
 
       const option = {
@@ -161,8 +315,8 @@
 
             return `
               <b>${d.state}</b><br/>
-              Sales: ${d.sales}<br/>
-              Profit: ${d.profit}
+              Sales: ${Number(d.sales).toLocaleString()}<br/>
+              Profit: ${Number(d.profit).toLocaleString()}
             `;
           }
         },
@@ -170,13 +324,13 @@
         xAxis: {
           show: false,
           min: 0,
-          max: 700
+          max: 650
         },
 
         yAxis: {
           show: false,
           min: 0,
-          max: 500
+          max: 450
         },
 
         series: [
@@ -187,34 +341,26 @@
 
             symbol: "hexagon",
 
-            data: merged.map(d => ({
+            data: mapData,
 
-              value: [d.x, d.y],
+            emphasis: {
 
-              state: d.state,
-
-              sales: d.sales,
-
-              profit: d.profit,
-
-              symbolSize:
-                Math.sqrt(d.sales) / 8,
-
-              itemStyle: {
-
-                color:
-
-                  d.profit > 0
-                    ? "#22c55e"
-                    : "#ef4444"
-              }
-
-            }))
+              scale: true
+            }
           }
         ]
       };
 
       chart.setOption(option);
+
+      chart.off("click");
+
+      chart.on("click", params => {
+
+        const d = params.data;
+
+        updateDetailPanel(d);
+      });
 
       gsap.from("#chart", {
 
@@ -222,9 +368,97 @@
 
         opacity: 0,
 
-        y: 30
+        y: 20
       });
     }
+
+    function updateDetailPanel(d) {
+
+      document.getElementById(
+        "selectedState"
+      ).innerText = d.state;
+
+      document.getElementById(
+        "salesValue"
+      ).innerText =
+        Number(d.sales).toLocaleString();
+
+      document.getElementById(
+        "profitValue"
+      ).innerText =
+        Number(d.profit).toLocaleString();
+
+      gsap.from("#detailPanel", {
+
+        duration: 0.5,
+
+        x: 20,
+
+        opacity: 0
+      });
+    }
+
+    function renderTopStates(data, encodingMap) {
+
+      const container =
+        document.getElementById("topStates");
+
+      container.innerHTML = "";
+
+      const sorted =
+        [...data]
+          .sort((a, b) =>
+
+            (b[encodingMap.profit] || 0)
+            -
+            (a[encodingMap.profit] || 0)
+          )
+          .slice(0, 5);
+
+      sorted.forEach((d, i) => {
+
+        const div =
+          document.createElement("div");
+
+        div.className =
+          "bg-gray-800 p-3 rounded-xl";
+
+        div.innerHTML = `
+
+          <div class="flex justify-between">
+
+            <span>
+              #${i + 1}
+              ${d[encodingMap.state]}
+            </span>
+
+            <span>
+              ${Number(
+                d[encodingMap.profit]
+              ).toLocaleString()}
+            </span>
+
+          </div>
+        `;
+
+        container.appendChild(div);
+      });
+    }
+
+    document
+      .querySelectorAll(".legend-btn")
+      .forEach(btn => {
+
+        btn.addEventListener(
+          "click",
+          () => {
+
+            console.log(
+              btn.dataset.range
+            );
+          }
+        );
+      });
 
     init();
 
