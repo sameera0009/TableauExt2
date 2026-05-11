@@ -3,69 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Lumina Donut | Modern Tableau Viz Extension</title>
+    <title>Lumina Sphere | Modern Tableau Donut Extension</title>
     <!-- Tableau Extension API & D3 -->
     <script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
-    <!-- Modern Font: Plus Jakarta Sans for clean UI/UX -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <!-- Premium Font: Inter + subtle SF aesthetics -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            user-select: none; /* smoother UI feel, avoid accidental text selection */
         }
 
         body, html {
             width: 100%;
             height: 100%;
-            background: radial-gradient(circle at 20% 30%, #0a0f1c, #03060c);
-            font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #FFFFFF;  /* clean premium white background */
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
             overflow: hidden;
             position: relative;
         }
 
-        /* animated gradient overlay for ambient modern effect */
-        .glow-orb {
+        /* micro grain texture for depth (barely visible) */
+        body::before {
+            content: "";
             position: fixed;
-            width: 80vw;
-            height: 80vw;
-            background: radial-gradient(circle, rgba(0, 180, 255, 0.08) 0%, rgba(0, 0, 0, 0) 70%);
-            top: -20%;
-            right: -20%;
-            border-radius: 50%;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: radial-gradient(#f0f2f8 1px, transparent 1px);
+            background-size: 32px 32px;
+            opacity: 0.35;
             pointer-events: none;
             z-index: 0;
-            filter: blur(60px);
-            animation: slowDrift 24s infinite alternate ease-in-out;
         }
 
-        .glow-orb-2 {
-            position: fixed;
-            width: 70vw;
-            height: 70vw;
-            background: radial-gradient(circle, rgba(255, 80, 200, 0.05) 0%, rgba(0, 0, 0, 0) 70%);
-            bottom: -30%;
-            left: -20%;
-            border-radius: 50%;
-            pointer-events: none;
-            z-index: 0;
-            filter: blur(70px);
-            animation: slowDriftReverse 30s infinite alternate;
-        }
-
-        @keyframes slowDrift {
-            0% { transform: translate(0, 0) scale(1); opacity: 0.4; }
-            100% { transform: translate(5%, 5%) scale(1.2); opacity: 0.8; }
-        }
-
-        @keyframes slowDriftReverse {
-            0% { transform: translate(0, 0) scale(1); opacity: 0.3; }
-            100% { transform: translate(-8%, -6%) scale(1.3); opacity: 0.7; }
-        }
-
-        /* main canvas container */
+        /* main container for viz */
         #viz-container {
             position: relative;
             width: 100%;
@@ -76,132 +51,195 @@
             z-index: 2;
         }
 
-        /* modern floating tooltip - frosted glass */
-        .modern-tooltip {
+        /* modern minimalist tooltip - elevated glass on white */
+        .smart-tooltip {
             position: fixed;
-            background: rgba(18, 25, 40, 0.85);
-            backdrop-filter: blur(16px);
-            border-radius: 20px;
-            padding: 10px 18px;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-radius: 28px;
+            padding: 10px 20px;
             font-size: 13px;
             font-weight: 500;
-            color: #f0f4ff;
-            border: 1px solid rgba(0, 230, 255, 0.4);
-            box-shadow: 0 12px 28px -8px rgba(0,0,0,0.5), 0 0 0 0.5px rgba(0, 230, 255, 0.2) inset;
+            color: #1a2639;
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            box-shadow: 0 20px 35px -12px rgba(0, 0, 0, 0.12), 0 0 0 0.5px rgba(0, 0, 0, 0.02) inset;
             font-family: 'Inter', monospace;
             pointer-events: none;
             z-index: 1000;
-            transition: opacity 0.2s ease, transform 0.1s;
-            letter-spacing: 0.2px;
+            transition: opacity 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1), transform 0.15s ease;
+            letter-spacing: -0.2px;
             white-space: nowrap;
-            backdrop-filter: blur(12px);
-        }
-
-        .modern-tooltip b {
-            color: #5effe6;
-            font-weight: 600;
-        }
-
-        /* subtle loading / no-data state */
-        .state-message {
-            background: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(12px);
-            border-radius: 48px;
-            padding: 12px 24px;
-            font-size: 14px;
-            color: #b9c8ff;
-            border: 1px solid rgba(0, 220, 250, 0.3);
             font-weight: 500;
-            text-align: center;
-            letter-spacing: 0.3px;
         }
 
-        /* better responsiveness for SVG text */
+        .smart-tooltip b {
+            color: #0066CC;
+            font-weight: 700;
+        }
+
+        .smart-tooltip span {
+            font-weight: 500;
+            color: #2c3e66;
+        }
+
+        /* modern guidance card - appears when encodings missing */
+        .guidance-card {
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(20px);
+            border-radius: 48px;
+            padding: 18px 32px;
+            box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0,0,0,0.02);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            text-align: center;
+            max-width: 340px;
+            animation: subtleFloat 2.4s infinite ease-in-out;
+            transition: all 0.3s;
+        }
+
+        .guidance-card .icon {
+            font-size: 44px;
+            margin-bottom: 12px;
+            display: inline-block;
+        }
+
+        .guidance-card h3 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #0a1929;
+            margin-bottom: 8px;
+            letter-spacing: -0.3px;
+        }
+
+        .guidance-card p {
+            font-size: 13px;
+            color: #5a6e8a;
+            font-weight: 450;
+            margin-top: 4px;
+        }
+
+        .pill-hint {
+            display: inline-flex;
+            background: #f0f4fe;
+            border-radius: 40px;
+            padding: 5px 14px;
+            margin-top: 12px;
+            gap: 8px;
+            font-size: 11px;
+            font-weight: 500;
+            color: #0066cc;
+        }
+
+        @keyframes subtleFloat {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-6px); }
+            100% { transform: translateY(0px); }
+        }
+
+        /* no data / zero values state */
+        .empty-state-modern {
+            background: #ffffffdd;
+            backdrop-filter: blur(12px);
+            border-radius: 36px;
+            padding: 20px 28px;
+            text-align: center;
+            border: 1px solid #eef2fa;
+            box-shadow: 0 12px 28px -8px rgba(0,0,0,0.04);
+        }
+
+        /* svg and donut enhancements */
         svg {
-            filter: drop-shadow(0 8px 20px rgba(0,0,0,0.3));
+            filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.02));
+            transition: all 0.2s;
         }
 
         .arc {
             cursor: pointer;
-            transition: all 0.25s cubic-bezier(0.2, 0.9, 0.4, 1.1);
-            stroke-linejoin: round;
+            transition: all 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.2);
+            stroke-linecap: round;
         }
 
         .arc:hover {
-            filter: drop-shadow(0 0 12px currentColor) brightness(1.15);
-            transform: scale(1.01);
-            transition: transform 0.1s;
+            filter: drop-shadow(0 8px 16px rgba(0, 102, 204, 0.15));
+            transform: scale(1.008);
+            transition: transform 0.15s;
         }
 
-        /* center text modern typography */
-        .center-value-modern {
-            font-weight: 700;
-            fill: #ffffff;
+        /* center text refined */
+        .center-value-premium {
+            fill: #0B1C33;
             text-anchor: middle;
             dominant-baseline: middle;
-            letter-spacing: -0.5px;
-            filter: drop-shadow(0 2px 5px rgba(0,0,0,0.3));
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            transition: all 0.2s;
         }
 
-        .center-label-modern {
-            fill: #94a9d4;
+        .center-label-premium {
+            fill: #6c7f9e;
             text-anchor: middle;
-            font-size: 12px;
-            font-weight: 500;
-            letter-spacing: 1.2px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.8px;
             text-transform: uppercase;
             dominant-baseline: middle;
         }
 
-        /* small legend hint absolute - modern minimal */
-        .legend-hint {
+        /* subtle legend watermark */
+        .insight-badge {
             position: absolute;
-            bottom: 18px;
-            right: 20px;
-            background: rgba(0, 0, 0, 0.45);
-            backdrop-filter: blur(8px);
-            border-radius: 40px;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(255,255,255,0.7);
+            backdrop-filter: blur(6px);
+            border-radius: 30px;
             padding: 6px 14px;
             font-size: 10px;
-            color: #b7ceff;
-            font-weight: 400;
-            letter-spacing: 0.4px;
-            border: 0.5px solid rgba(0, 210, 255, 0.3);
+            font-weight: 500;
+            color: #3f5579;
+            border: 0.5px solid rgba(0,0,0,0.04);
             pointer-events: none;
             z-index: 3;
             font-family: 'Inter', monospace;
         }
+
+        /* micro animation for donut entrance */
+        @keyframes donutFadeIn {
+            0% { opacity: 0; transform: scale(0.96); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        svg g {
+            animation: donutFadeIn 0.45s ease-out;
+        }
     </style>
 </head>
 <body>
-<div class="glow-orb"></div>
-<div class="glow-orb-2"></div>
 <div id="viz-container"></div>
-<div id="dynamic-tooltip" class="modern-tooltip" style="opacity:0; visibility: visible;"></div>
+<div id="dynamic-tooltip" class="smart-tooltip" style="opacity:0;"></div>
 
 <script>
     (function() {
         'use strict';
 
         let worksheet;
-        let currentResizeObserver = null;
+        let resizeTimeout;
 
-        // 🎨 Refined, modern neon-meets-soft palette (accessible & vibrant)
-        const MODERN_PALETTE = [
-            "#2AFFD2", // electric mint
-            "#FF4D8C", // vivid pink
-            "#7C4DFF", // bright purple
-            "#FFB347", // warm apricot
-            "#3D8AFF", // electric blue
-            "#FF6E6E", // coral peach
-            "#28E1B0", // sea foam
-            "#CD7AFF", // lavender
-            "#FFB347", // gold
-            "#FF6AC2"  // bubblegum
+        // 🎨 Premium vibrant palette (refined, modern, accessible on white bg)
+        const PREMIUM_COLORS = [
+            "#2563EB", // vibrant blue
+            "#E11D48", // rose
+            "#10B981", // emerald
+            "#F59E0B", // amber
+            "#8B5CF6", // violet
+            "#EC4899", // pink
+            "#06B6D4", // cyan
+            "#F97316", // orange
+            "#6366F1", // indigo
+            "#84CC16"  // lime
         ];
 
-        // Utility: get summary data with modern error resilience
-        async function getSummaryDataTable(ws) {
+        // Helper: get aggregated data from worksheet
+        async function fetchSummaryData(ws) {
             let rows = [];
             try {
                 const reader = await ws.getSummaryDataReaderAsync(undefined, { ignoreSelection: true });
@@ -216,204 +254,47 @@
                 await reader.releaseAsync();
                 return rows;
             } catch (err) {
-                console.warn("Error fetching summary data:", err);
+                console.warn("summary error:", err);
                 return [];
             }
         }
 
-        async function getEncodingMap(ws) {
+        // get encoding mapping from current viz spec (Angle & Color fields)
+        async function getActiveEncodings(ws) {
             try {
                 const spec = await ws.getVisualSpecificationAsync();
-                const map = { colors: {} };
-                if (!spec || spec.activeMarksSpecificationIndex < 0) return map;
+                const encodings = { angle: null, color: null, colorsMap: {} };
+                if (!spec || spec.activeMarksSpecificationIndex < 0) return encodings;
                 const marks = spec.marksSpecifications[spec.activeMarksSpecificationIndex];
                 if (marks && marks.encodings) {
-                    marks.encodings.forEach(e => { map[e.id] = e.field; });
+                    for (let enc of marks.encodings) {
+                        if (enc.id === "angle") encodings.angle = enc.field;
+                        if (enc.id === "color") encodings.color = enc.field;
+                    }
                 }
+                // extract color palette from Tableau if available
                 if (marks && marks.colorPalette && marks.colorPalette.paletteEntries) {
                     marks.colorPalette.paletteEntries.forEach(entry => {
-                        map.colors[entry.value] = entry.color;
+                        encodings.colorsMap[entry.value] = entry.color;
                     });
                 }
-                return map;
+                return encodings;
             } catch (err) {
-                console.warn("Encoding extraction failed", err);
-                return { colors: {} };
+                console.warn("encodings error", err);
+                return { angle: null, color: null, colorsMap: {} };
             }
         }
 
-        // ---------- RENDER ENGINE with modern smooth design ----------
-        function renderDonut(data, encodings) {
-            const container = d3.select("#viz-container");
-            container.selectAll("svg").remove();
-
-            // Validation: require angle (measure) and color (dimension)
-            if (!encodings.angle || !encodings.color || !data || data.length === 0) {
-                container.append("div")
-                    .attr("class", "state-message")
-                    .style("position", "absolute")
-                    .style("top", "50%")
-                    .style("left", "50%")
-                    .style("transform", "translate(-50%, -50%)")
-                    .style("white-space", "nowrap")
-                    .html("✨ Assign a <b>Measure</b> to Angle & a <b>Dimension</b> to Color ✨");
-                return;
-            }
-
-            // Process data: aggregate by color dimension
-            const processed = data.map(d => ({
-                val: parseFloat(d[encodings.angle.name]?.nativeValue) || 0,
-                lab: d[encodings.color.name]?.formattedValue || "Undefined"
-            }));
-
-            // aggregate by label
-            const groupedMap = new Map();
-            for (let item of processed) {
-                const existing = groupedMap.get(item.lab);
-                if (existing) existing.val += item.val;
-                else groupedMap.set(item.lab, { lab: item.lab, val: item.val });
-            }
-            let finalData = Array.from(groupedMap.values()).filter(d => d.val > 0);
-            const total = d3.sum(finalData, d => d.val);
-            if (total === 0 || finalData.length === 0) {
-                container.append("div")
-                    .attr("class", "state-message")
-                    .style("position", "absolute")
-                    .style("top", "50%")
-                    .style("left", "50%")
-                    .style("transform", "translate(-50%, -50%)")
-                    .html("📊 No positive values to display. Check your measure data.");
-                return;
-            }
-
-            // sort nicely by value descending for visual clarity
-            finalData.sort((a,b) => b.val - a.val);
-
-            // dimensions
-            const w = window.innerWidth, h = window.innerHeight;
-            const radiusBase = Math.min(w, h) * 0.32; // adaptive radius
-            const innerRadiusFactor = 0.68;   // modern thicker donut with nice depth
-            const outerRadius = radiusBase;
-            const innerRadius = outerRadius * innerRadiusFactor;
-            const cornerRad = 10;
-
-            const svg = container.append("svg")
-                .attr("width", w)
-                .attr("height", h)
-                .style("display", "block")
-                .append("g")
-                .attr("transform", `translate(${w/2}, ${h/2})`);
-
-            // color mapping: merge Tableau assigned colors + modern extension fallback
-            const tableauColorMap = encodings.colors || {};
-            const customColorScale = d3.scaleOrdinal()
-                .domain(finalData.map(d => d.lab))
-                .range(MODERN_PALETTE);
-            
-            const getSegmentColor = (segmentLabel) => {
-                if (tableauColorMap[segmentLabel]) return tableauColorMap[segmentLabel];
-                return customColorScale(segmentLabel);
-            };
-
-            // pie generator with padding for sleek segmentation
-            const pieGen = d3.pie()
-                .value(d => d.val)
-                .padAngle(0.025)   // refined spacing gives modern "pill" separation
-                .sort(null);
-
-            const arcGenerator = d3.arc()
-                .innerRadius(innerRadius)
-                .outerRadius(outerRadius)
-                .cornerRadius(cornerRad);
-
-            // hover highlight arc (scale effect)
-            const arcsData = pieGen(finalData);
-            
-            // draw segments
-            const paths = svg.selectAll(".arc")
-                .data(arcsData)
-                .enter()
-                .append("path")
-                .attr("class", "arc")
-                .attr("d", arcGenerator)
-                .attr("fill", d => getSegmentColor(d.data.lab))
-                .attr("stroke", "rgba(8, 14, 24, 0.8)")
-                .attr("stroke-width", 2.5)
-                .attr("stroke-linejoin", "round")
-                .style("cursor", "pointer")
-                .style("transition", "filter 0.2s, transform 0.2s")
-                .style("transform-origin", "center");
-
-            // tooltip & dynamic center text update
-            const tooltipEl = d3.select("#dynamic-tooltip");
-            const centerValText = svg.append("text")
-                .attr("class", "center-value-modern")
-                .attr("dy", "-0.2em")
-                .style("font-size", `${Math.min(outerRadius * 0.22, 52)}px`)
-                .style("font-weight", "700")
-                .text(formatNumber(total));
-
-            const centerLabelText = svg.append("text")
-                .attr("class", "center-label-modern")
-                .attr("dy", "1.6em")
-                .style("font-size", `${Math.max(10, outerRadius * 0.095)}px`)
-                .text("TOTAL");
-
-            // background subtle ring accent for depth (inner glow)
-            svg.append("circle")
-                .attr("r", innerRadius - 4)
-                .attr("fill", "rgba(0, 15, 30, 0.4)")
-                .attr("stroke", "rgba(0, 200, 255, 0.15)")
-                .attr("stroke-width", 1.2)
-                .style("pointer-events", "none");
-
-            // interactive handlers
-            paths.each(function(d, idx) {
-                d3.select(this)
-                    .on("mouseover", function(event, segmentArc) {
-                        const percentage = ((segmentArc.data.val / total) * 100).toFixed(1);
-                        const valFormatted = formatNumber(segmentArc.data.val);
-                        tooltipEl.html(`
-                            <b>${escapeHtml(segmentArc.data.lab)}</b><br/>
-                            ${valFormatted}  <span style="opacity:0.7; font-size:11px;">(${percentage}%)</span>
-                        `);
-                        tooltipEl.style("opacity", 1).style("transform", "scale(1)");
-                        // Update center preview to slice value
-                        centerValText.text(formatNumber(segmentArc.data.val));
-                        centerLabelText.text(segmentArc.data.lab.length > 20 ? segmentArc.data.lab.slice(0,18)+"…" : segmentArc.data.lab);
-                        // subtle highlight on path
-                        d3.select(this).attr("stroke", "#ffffff").attr("stroke-width", "3.2");
-                    })
-                    .on("mousemove", function(event) {
-                        const x = event.clientX + 18;
-                        const y = event.clientY - 32;
-                        tooltipEl.style("left", `${x}px`).style("top", `${y}px`);
-                    })
-                    .on("mouseout", function() {
-                        tooltipEl.style("opacity", 0);
-                        centerValText.text(formatNumber(total));
-                        centerLabelText.text("TOTAL");
-                        d3.select(this).attr("stroke", "rgba(8, 14, 24, 0.8)").attr("stroke-width", "2.5");
-                    });
-            });
-
-            // optional small decorative arcs: add subtle outer glow effect via filters
-            svg.append("circle")
-                .attr("r", outerRadius + 3)
-                .attr("fill", "none")
-                .attr("stroke", "rgba(0, 230, 250, 0.2)")
-                .attr("stroke-width", 1)
-                .style("pointer-events", "none");
-        }
-
-        function formatNumber(num) {
+        // format big numbers elegantly
+        function formatSmartNumber(num) {
             if (num === undefined || num === null) return "0";
-            if (num >= 1e6) return (num / 1e6).toFixed(1) + "M";
-            if (num >= 1e3) return (num / 1e3).toFixed(1) + "K";
+            if (num >= 1_000_000) return (num / 1_000_000).toFixed(1).replace(/\.0$/, '') + "M";
+            if (num >= 1_000) return (num / 1_000).toFixed(1).replace(/\.0$/, '') + "K";
             return num.toLocaleString();
         }
 
-        function escapeHtml(str) {
+        // escape HTML for tooltip safety
+        function safeText(str) {
             if (!str) return '';
             return String(str).replace(/[&<>]/g, function(m) {
                 if (m === '&') return '&amp;';
@@ -423,58 +304,292 @@
             });
         }
 
-        // leader: orchestrate data and render
-        async function loadAndRender() {
-            if (!worksheet) return;
-            try {
-                const [data, encodings] = await Promise.all([
-                    getSummaryDataTable(worksheet),
-                    getEncodingMap(worksheet)
-                ]);
-                renderDonut(data, encodings);
-            } catch (err) {
-                console.error("Render failed:", err);
-                d3.select("#viz-container").append("div")
-                    .attr("class", "state-message")
+        // main rendering engine with enhanced animations & UX
+        function renderPremiumDonut(rawData, encodings) {
+            const container = d3.select("#viz-container");
+            container.selectAll("svg, .guidance-card, .empty-state-modern").remove();
+
+            // 1. Validation: angle (measure) and color (dimension) must be present
+            if (!encodings.angle || !encodings.color) {
+                // Show beautiful interactive guidance with animation 
+                const guidance = container.append("div")
+                    .attr("class", "guidance-card")
                     .style("position", "absolute")
                     .style("top", "50%")
                     .style("left", "50%")
                     .style("transform", "translate(-50%, -50%)")
-                    .html("⚠️ Extension error: check data fields or console.");
+                    .style("z-index", "20");
+                
+                guidance.html(`
+                    <div class="icon">✨🎯</div>
+                    <h3>Drop fields to visualize</h3>
+                    <p>Drag a <strong>Measure</strong> to <strong style="color:#2563EB">Angle</strong><br>
+                    and a <strong>Dimension</strong> to <strong style="color:#2563EB">Color</strong> on the Marks card.</p>
+                    <div class="pill-hint">
+                        <span>📐 Angle = Value</span>
+                        <span>🎨 Color = Category</span>
+                    </div>
+                `);
+                return;
+            }
+
+            // 2. Process raw data: aggregate by color dimension
+            const angleFieldName = encodings.angle.name;
+            const colorFieldName = encodings.color.name;
+            
+            if (!angleFieldName || !colorFieldName) {
+                container.append("div")
+                    .attr("class", "empty-state-modern")
+                    .style("position", "absolute")
+                    .style("top", "50%")
+                    .style("left", "50%")
+                    .style("transform", "translate(-50%, -50%)")
+                    .html(`<span style="font-size:28px;">📌</span><br/><span style="font-weight:500;">Incomplete field mapping</span><br/><span style="font-size:12px;">Assign valid fields to Angle & Color</span>`);
+                return;
+            }
+
+            // Build aggregated map
+            const aggregatedMap = new Map();
+            for (let row of rawData) {
+                let rawValue = row[angleFieldName]?.nativeValue;
+                let numericVal = parseFloat(rawValue);
+                if (isNaN(numericVal)) numericVal = 0;
+                let category = row[colorFieldName]?.formattedValue || "Undefined";
+                if (category === "Undefined" || category === "" || category === "null") category = "Other";
+                
+                if (aggregatedMap.has(category)) {
+                    aggregatedMap.set(category, aggregatedMap.get(category) + numericVal);
+                } else {
+                    aggregatedMap.set(category, numericVal);
+                }
+            }
+            
+            // Convert to array and filter zero values
+            let finalSegments = Array.from(aggregatedMap.entries())
+                .map(([lab, val]) => ({ lab, val }))
+                .filter(d => d.val > 0);
+            
+            const totalValue = d3.sum(finalSegments, d => d.val);
+            
+            if (finalSegments.length === 0 || totalValue === 0) {
+                container.append("div")
+                    .attr("class", "empty-state-modern")
+                    .style("position", "absolute")
+                    .style("top", "50%")
+                    .style("left", "50%")
+                    .style("transform", "translate(-50%, -50%)")
+                    .html(`<span style="font-size:34px;">🍩</span><br/><span style="font-weight:500;">No positive values</span><br/><span style="font-size:12px;">Measure values sum to zero</span>`);
+                return;
+            }
+
+            // sort slices by value descending for better UX
+            finalSegments.sort((a,b) => b.val - a.val);
+            
+            // Dimensions for responsive donut
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            const baseRadius = Math.min(w, h) * 0.31;
+            const innerRadius = baseRadius * 0.68;
+            const outerRadius = baseRadius;
+            const cornerRadius = 12;
+            
+            // remove existing svg and create
+            const svg = container.append("svg")
+                .attr("width", w)
+                .attr("height", h)
+                .style("display", "block")
+                .style("background", "transparent")
+                .append("g")
+                .attr("transform", `translate(${w/2}, ${h/2})`);
+            
+            // Color mapping: use Tableau palette if defined else our premium set
+            const tableauColorLookup = encodings.colorsMap || {};
+            const colorScale = d3.scaleOrdinal()
+                .domain(finalSegments.map(d => d.lab))
+                .range(PREMIUM_COLORS);
+            
+            const getFillColor = (label) => {
+                if (tableauColorLookup[label]) return tableauColorLookup[label];
+                return colorScale(label);
+            };
+            
+            // pie generator with slight gap for modern "separated segments" look
+            const pieLayout = d3.pie()
+                .value(d => d.val)
+                .padAngle(0.022)
+                .sort(null);
+            
+            const arcGenerator = d3.arc()
+                .innerRadius(innerRadius)
+                .outerRadius(outerRadius)
+                .cornerRadius(cornerRadius);
+            
+            const pieData = pieLayout(finalSegments);
+            
+            // Draw arcs with smooth transition & micro bounce
+            const arcsGroup = svg.selectAll(".arc-group")
+                .data(pieData)
+                .enter()
+                .append("g")
+                .attr("class", "arc-group");
+            
+            arcsGroup.append("path")
+                .attr("class", "arc")
+                .attr("d", arcGenerator)
+                .attr("fill", d => getFillColor(d.data.lab))
+                .attr("stroke", "#FFFFFF")
+                .attr("stroke-width", 3)
+                .attr("stroke-linejoin", "round")
+                .style("cursor", "pointer")
+                .style("transition", "all 0.2s cubic-bezier(0.2,0.9,0.4,1.1)")
+                .on("mouseover", function(event, sliceData) {
+                    // animate hover arc scale via transform
+                    d3.select(this).attr("stroke-width", 4.5).attr("stroke", "#FFFFFF");
+                    // update tooltip
+                    const percent = (sliceData.data.val / totalValue) * 100;
+                    const percentFormatted = percent.toFixed(1);
+                    const valFormatted = formatSmartNumber(sliceData.data.val);
+                    d3.select("#dynamic-tooltip")
+                        .style("opacity", 1)
+                        .html(`<b>${safeText(sliceData.data.lab)}</b> &nbsp; <span>${valFormatted}</span> &nbsp; <span style="opacity:0.7;">(${percentFormatted}%)</span>`);
+                    
+                    // animate center text to slice value
+                    centerValueText.text(formatSmartNumber(sliceData.data.val));
+                    centerLabelText.text(sliceData.data.lab.length > 22 ? sliceData.data.lab.slice(0,20)+"…" : sliceData.data.lab);
+                })
+                .on("mousemove", function(event) {
+                    d3.select("#dynamic-tooltip")
+                        .style("left", (event.clientX + 16) + "px")
+                        .style("top", (event.clientY - 42) + "px");
+                })
+                .on("mouseout", function() {
+                    d3.select(this).attr("stroke-width", 3).attr("stroke", "#FFFFFF");
+                    d3.select("#dynamic-tooltip").style("opacity", 0);
+                    centerValueText.text(formatSmartNumber(totalValue));
+                    centerLabelText.text("TOTAL");
+                });
+            
+            // center text group with lively animation
+            const centerValueText = svg.append("text")
+                .attr("class", "center-value-premium")
+                .attr("dy", "-0.15em")
+                .style("font-size", `${Math.min(baseRadius * 0.22, 56)}px`)
+                .style("fill", "#0F2C4E")
+                .text(formatSmartNumber(totalValue));
+            
+            const centerLabelText = svg.append("text")
+                .attr("class", "center-label-premium")
+                .attr("dy", "1.5em")
+                .style("font-size", `${Math.max(9, baseRadius * 0.09)}px`)
+                .text("TOTAL");
+            
+            // add a subtle inner glow ring
+            svg.append("circle")
+                .attr("r", innerRadius - 2)
+                .attr("fill", "rgba(245, 248, 255, 0.6)")
+                .attr("stroke", "rgba(0, 102, 204, 0.08)")
+                .attr("stroke-width", 1.2)
+                .style("pointer-events", "none");
+            
+            // add micro animation for donut enter (scale)
+            svg.attr("opacity", 0)
+                .transition()
+                .duration(500)
+                .ease(d3.easeCubicOut)
+                .attr("opacity", 1);
+        }
+        
+        // orchestrate: fetch data + encodings and render with loading state
+        async function refreshVisualization() {
+            if (!worksheet) return;
+            
+            const container = d3.select("#viz-container");
+            // show micro loading only if needed (smooth)
+            const existingHint = container.select(".temp-loading");
+            if (existingHint.empty()) {
+                container.append("div")
+                    .attr("class", "temp-loading")
+                    .style("position", "absolute")
+                    .style("top", "50%")
+                    .style("left", "50%")
+                    .style("transform", "translate(-50%, -50%)")
+                    .style("background", "rgba(255,255,255,0.8)")
+                    .style("borderRadius", "40px")
+                    .style("padding", "10px 24px")
+                    .style("fontSize", "13px")
+                    .style("color", "#2c4f7c")
+                    .style("backdropFilter", "blur(4px)")
+                    .style("zIndex", "20")
+                    .html("⟳ loading data...");
+            }
+            
+            try {
+                const [rawData, encodings] = await Promise.all([
+                    fetchSummaryData(worksheet),
+                    getActiveEncodings(worksheet)
+                ]);
+                container.selectAll(".temp-loading").remove();
+                renderPremiumDonut(rawData, encodings);
+            } catch (err) {
+                container.selectAll(".temp-loading").remove();
+                console.error(err);
+                container.append("div")
+                    .attr("class", "empty-state-modern")
+                    .style("position", "absolute")
+                    .style("top", "50%")
+                    .style("left", "50%")
+                    .style("transform", "translate(-50%, -50%)")
+                    .html(`<span>⚠️</span> Error loading data`);
             }
         }
-
-        // debounced resize handler for high performance
-        let resizeTimer;
-        function handleResize() {
-            if (resizeTimer) clearTimeout(resizeTimer);
-            resizeTimer = setTimeout(() => {
-                if (worksheet) loadAndRender();
-            }, 120);
+        
+        // resize handler with debounce for smooth canvas update
+        function debouncedResize() {
+            if (resizeTimeout) clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                if (worksheet) refreshVisualization();
+            }, 100);
         }
-
-        // Initialize Tableau Extension
+        
+        // initialize Tableau extension with event listeners
         async function initExtension() {
             try {
                 await tableau.extensions.initializeAsync();
                 worksheet = tableau.extensions.worksheetContent.worksheet;
                 if (!worksheet) {
-                    d3.select("#viz-container").html('<div class="state-message" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);">⚠️ No active worksheet found.</div>');
+                    d3.select("#viz-container").append("div")
+                        .attr("class", "guidance-card")
+                        .style("position", "absolute")
+                        .style("top", "50%")
+                        .style("left", "50%")
+                        .style("transform", "translate(-50%, -50%)")
+                        .html(`<div class="icon">📄</div><h3>No worksheet active</h3><p>Please open a worksheet with data.</p>`);
                     return;
                 }
-                await loadAndRender();
-                // add event listeners for data changes and selection updates
-                worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, () => loadAndRender());
-                // also listen to selection changes? optional graceful
-                worksheet.addEventListener(tableau.TableauEventType.SelectionChanged, () => loadAndRender());
-                window.addEventListener('resize', handleResize);
+                // initial render
+                await refreshVisualization();
+                // Event listeners: when user changes encoding (dragging fields) or data updates
+                worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, () => refreshVisualization());
+                worksheet.addEventListener(tableau.TableauEventType.SelectionChanged, () => refreshVisualization());
+                // listen to marks change via visual spec changed? using SummaryDataChanged covers most.
+                // also watch resize
+                window.addEventListener('resize', debouncedResize);
             } catch (err) {
-                console.error("init failed:", err);
-                d3.select("#viz-container").html('<div class="state-message" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%);">💡 Extension init error. Check console.</div>');
+                console.error("init error", err);
+                d3.select("#viz-container").append("div")
+                    .style("position", "absolute")
+                    .style("top", "50%")
+                    .style("left", "50%")
+                    .style("transform", "translate(-50%, -50%)")
+                    .style("background", "white")
+                    .style("borderRadius", "32px")
+                    .style("padding", "16px 28px")
+                    .style("boxShadow", "0 4px 12px rgba(0,0,0,0.05)")
+                    .html(`⚠️ Extension could not connect. Refresh the dashboard.`);
             }
         }
-
-        // additional minor cleanup for tooltip positioning and global style
+        
+        // start everything after window load
         window.addEventListener('load', () => {
             initExtension();
         });
