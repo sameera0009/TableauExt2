@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+  <meta charset="UTF-8" />
+
+  <title>Hexbin US Analytics Map</title>
+
+  <script src="https://tableau.github.io/extensions-api/lib/tableau.extensions.1.latest.min.js"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
+</head>
+
+<body class="bg-gray-950 text-white h-screen overflow-hidden">
+
+  <div class="grid grid-cols-12 gap-4 p-4 h-full">
+
+    <!-- LEFT PANEL -->
+
+    <div class="col-span-9 bg-gray-900 rounded-2xl p-4 shadow-2xl">
+
+      <div class="flex justify-between items-center mb-4">
+
+        <h1 class="text-2xl font-bold">
+          Hexbin US Analytics Map
+        </h1>
+
+        <div class="flex gap-2">
+
+          <button
+            class="legend-btn bg-green-600 px-3 py-1 rounded-lg"
+            data-range="high">
+            High Profit
+          </button>
+
+          <button
+            class="legend-btn bg-yellow-500 px-3 py-1 rounded-lg"
+            data-range="medium">
+            Medium
+          </button>
+
+          <button
+            class="legend-btn bg-red-600 px-3 py-1 rounded-lg"
+            data-range="low">
+            Low
+          </button>
+
+        </div>
+
+      </div>
+
+      <!-- MAP -->
+
+      <div
+        id="hexMap"
+        class="w-full h-[80vh] rounded-2xl">
+      </div>
+
+    </div>
+
+    <!-- RIGHT PANEL -->
+
+    <div class="col-span-3 flex flex-col gap-4">
+
+      <!-- DETAIL PANEL -->
+
+      <div
+        id="detailPanel"
+        class="bg-gray-900 rounded-2xl p-4 shadow-2xl">
+
+        <h2 class="text-xl font-bold mb-3">
+          State Details
+        </h2>
+
+        <div id="selectedState"
+             class="text-3xl font-bold text-cyan-400">
+          California
+        </div>
+
+        <div class="mt-4 space-y-2">
+
+          <div>
+            Sales:
+            <span id="salesValue">500K</span>
+          </div>
+
+          <div>
+            Profit:
+            <span id="profitValue">120K</span>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- TOP STATES -->
+
+      <div class="bg-gray-900 rounded-2xl p-4 shadow-2xl">
+
+        <h2 class="text-xl font-bold mb-3">
+          Top Performers
+        </h2>
+
+        <div id="topStates" class="space-y-2">
+
+        </div>
+
+      </div>
+
+      <!-- SPARKLINE -->
+
+      <div class="bg-gray-900 rounded-2xl p-4 shadow-2xl">
+
+        <h2 class="text-xl font-bold mb-3">
+          Monthly Trend
+        </h2>
+
+        <div id="sparkline"
+             class="w-full h-40">
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <script>
+
+    let dashboard;
+    let worksheets;
+
+    const sampleData = [
+
+      {
+        state: "California",
+        sales: 500000,
+        profit: 120000,
+        x: 100,
+        y: 150
+      },
+
+      {
+        state: "Texas",
+        sales: 350000,
+        profit: 60000,
+        x: 250,
+        y: 250
+      },
+
+      {
+        state: "Florida",
+        sales: 200000,
+        profit: -10000,
+        x: 400,
+        y: 300
+      }
+
+    ];
+
+    async function initializeExtension() {
+
+      await tableau.extensions.initializeAsync();
+
+      dashboard =
+        tableau.extensions.dashboardContent.dashboard;
+
+      worksheets = dashboard.worksheets;
+
+      console.log("Extension Initialized");
+
+      renderHexMap();
+
+      renderTopStates();
+
+      renderSparkline();
+
+      animateCards();
+    }
+
+    function renderHexMap() {
+
+      const chart =
+        echarts.init(
+          document.getElementById("hexMap")
+        );
+
+      const option = {
+
+        tooltip: {
+
+          trigger: "item",
+
+          formatter: (params) => {
+
+            const d = params.data;
+
+            return `
+              <b>${d.state}</b><br/>
+              Sales: ${d.sales.toLocaleString()}<br/>
+              Profit: ${d.profit.toLocaleString()}
+            `;
+          }
+        },
+
+        xAxis: {
+          show: false,
+          min: 0,
+          max: 600
+        },
+
+        yAxis: {
+          show: false,
+          min: 0,
+          max: 400
+        },
+
+        series: [
+
+          {
+            type: "scatter",
+
+            symbol: "hexagon",
+
+            data: sampleData.map(d => ({
+
+              name: d.state,
+
+              value: [d.x, d.y],
+
+              sales: d.sales,
+
+              profit: d.profit,
+
+              state: d.state,
+
+              symbolSize:
+                Math.sqrt(d.sales) / 20,
+
+              itemStyle: {
+
+                color:
+                  d.profit > 100000
+                    ? "#22c55e"
+                    : d.profit > 0
+                    ? "#eab308"
+                    : "#ef4444"
+              }
+
+            }))
+          }
+        ]
+      };
+
+      chart.setOption(option);
+
+      chart.on("click", async (params) => {
+
+        const state = params.data.state;
+
+        updateDetailPanel(params.data);
+
+        await applyStateFilter(state);
+      });
+    }
+
+    async function applyStateFilter(state) {
+
+      try {
+
+        const worksheet =
+          worksheets[0];
+
+        await worksheet.applyFilterAsync(
+          "State",
+          [state],
+          tableau.FilterUpdateType.Replace
+        );
+
+      } catch (err) {
+
+        console.error(err);
+      }
+    }
+
+    function updateDetailPanel(data) {
+
+      document.getElementById(
+        "selectedState"
+      ).innerText = data.state;
+
+      document.getElementById(
+        "salesValue"
+      ).innerText =
+        data.sales.toLocaleString();
+
+      document.getElementById(
+        "profitValue"
+      ).innerText =
+        data.profit.toLocaleString();
+
+      gsap.from("#detailPanel", {
+
+        duration: 0.6,
+
+        x: 30,
+
+        opacity: 0
+      });
+    }
+
+    function renderTopStates() {
+
+      const container =
+        document.getElementById("topStates");
+
+      const sorted =
+        [...sampleData]
+          .sort((a, b) => b.profit - a.profit);
+
+      sorted.forEach((d, i) => {
+
+        const div =
+          document.createElement("div");
+
+        div.className =
+          "bg-gray-800 p-3 rounded-xl";
+
+        div.innerHTML = `
+          <div class="flex justify-between">
+            <span>#${i + 1} ${d.state}</span>
+            <span>${d.profit.toLocaleString()}</span>
+          </div>
+        `;
+
+        container.appendChild(div);
+      });
+    }
+
+    function renderSparkline() {
+
+      const chart =
+        echarts.init(
+          document.getElementById("sparkline")
+        );
+
+      chart.setOption({
+
+        xAxis: {
+          type: "category",
+          show: false,
+          data: [
+            "Jan","Feb","Mar",
+            "Apr","May","Jun"
+          ]
+        },
+
+        yAxis: {
+          show: false
+        },
+
+        series: [
+
+          {
+            type: "line",
+
+            smooth: true,
+
+            data: [
+              12,18,15,22,28,35
+            ],
+
+            areaStyle: {}
+          }
+        ]
+      });
+    }
+
+    function animateCards() {
+
+      gsap.from(".bg-gray-900", {
+
+        duration: 1,
+
+        opacity: 0,
+
+        y: 30,
+
+        stagger: 0.15
+      });
+    }
+
+    document
+      .querySelectorAll(".legend-btn")
+      .forEach(btn => {
+
+        btn.addEventListener(
+          "click",
+          () => {
+
+            const range =
+              btn.dataset.range;
+
+            console.log(
+              "Filter:",
+              range
+            );
+          }
+        );
+      });
+
+    initializeExtension();
+
+  </script>
+
+</body>
+</html>
