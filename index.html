@@ -270,54 +270,112 @@ window.onload = async () => {
 
 async function loadData(){
 
-  const dataReader =
-    await worksheet.getSummaryDataReaderAsync();
+  try{
 
-  let rows = [];
+    const visualSpec =
+      await worksheet.getVisualSpecificationAsync();
 
-  for(let p=0; p<dataReader.pageCount; p++){
+    const marksCard =
+      visualSpec.marksSpecifications[
+        visualSpec.activeMarksSpecificationIndex
+      ];
 
-    const page =
-      await dataReader.getPageAsync(p);
+    const encodingMap = {};
 
-    rows = rows.concat(page.data);
+    marksCard.encodings.forEach(enc => {
+
+      encodingMap[enc.id] = enc.field.name;
+
+    });
+
+    if(
+      !encodingMap.state ||
+      !encodingMap.sales ||
+      !encodingMap.profit
+    ){
+
+      document.getElementById("hexMap").innerHTML = `
+        <div style="
+          padding:40px;
+          color:white;
+          font-size:20px;
+        ">
+          Drag fields to:
+          <br/><br/>
+          • State → State shelf
+          <br/>
+          • SUM(Sales) → Sales shelf
+          <br/>
+          • SUM(Profit) → Profit shelf
+        </div>
+      `;
+
+      return;
+    }
+
+    const dataReader =
+      await worksheet.getSummaryDataReaderAsync();
+
+    let rows = [];
+
+    for(let p=0; p<dataReader.pageCount; p++){
+
+      const page =
+        await dataReader.getPageAsync(p);
+
+      rows = rows.concat(page.data);
+    }
+
+    const columns = dataReader.columns;
+
+    await dataReader.releaseAsync();
+
+    const stateIndex =
+      columns.findIndex(
+        c => c.fieldName === encodingMap.state
+      );
+
+    const salesIndex =
+      columns.findIndex(
+        c => c.fieldName === encodingMap.sales
+      );
+
+    const profitIndex =
+      columns.findIndex(
+        c => c.fieldName === encodingMap.profit
+      );
+
+    const data = rows.map(r => ({
+
+      state:
+        r[stateIndex]?.formattedValue || "",
+
+      sales:
+        +r[salesIndex]?.value || 0,
+
+      profit:
+        +r[profitIndex]?.value || 0
+
+    }));
+
+    render(data);
+
+  }catch(err){
+
+    console.error(err);
+
+    document.getElementById("hexMap").innerHTML = `
+      <div style="
+        padding:30px;
+        color:#ff6b6b;
+        font-size:18px;
+      ">
+        Connection Failed<br/><br/>
+        ${err.message}
+      </div>
+    `;
   }
-
-  const columns = dataReader.columns;
-
-  await dataReader.releaseAsync();
-
-  const stateIndex =
-    columns.findIndex(
-      c => c.fieldName.includes("State")
-    );
-
-  const salesIndex =
-    columns.findIndex(
-      c => c.fieldName.includes("Sales")
-    );
-
-  const profitIndex =
-    columns.findIndex(
-      c => c.fieldName.includes("Profit")
-    );
-
-  const data = rows.map(r => ({
-
-    state:
-      r[stateIndex]?.formattedValue || "",
-
-    sales:
-      +r[salesIndex]?.value || 0,
-
-    profit:
-      +r[profitIndex]?.value || 0
-
-  }));
-
-  render(data);
 }
-
 function render(data){
 
   renderKPIs(data);
