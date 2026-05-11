@@ -2,180 +2,206 @@
 <html>
 <head>
     <meta charset="utf-8"/>
-    <title>Hex Map</title>
+    <title>Donut Hex Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
     <script src="https://cdn.jsdelivr.net/npm/gsap@3"></script>
     <script src="https://tableau.github.io/extensions-api/lib/tableau.extensions.1.latest.js"></script>
     <style>
-        body { margin: 0; background: #061222; overflow: hidden; font-family: sans-serif; color: white; }
-        #viz { width: 100vw; height: 100vh; }
-        .back-btn {
-            position: absolute; top: 20px; left: 20px; padding: 10px 18px;
-            background: #4dabf7; color: white; border: none; border-radius: 4px;
-            cursor: pointer; display: none; z-index: 10;
+        :root {
+            --bg: #f0f2f5;
+            --card: #ffffff;
+            --primary: #4e79a7;
+            --text: #2c3e50;
         }
-        .error-overlay {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            text-align: center; color: #8892b0;
+
+        body { 
+            margin: 0; background: var(--bg); color: var(--text); 
+            font-family: 'Segoe UI', Roboto, sans-serif; overflow: hidden; 
+        }
+
+        #app {
+            display: flex; flex-wrap: wrap; gap: 20px; padding: 30px;
+            height: 100vh; width: 100vw; justify-content: center; align-items: center;
+        }
+
+        .donut-card {
+            background: var(--card);
+            width: 260px; height: 320px;
+            border-radius: 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            position: relative; transition: transform 0.3s ease;
+            border: 1px solid rgba(0,0,0,0.03);
+        }
+
+        .donut-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+        }
+
+        .state-label {
+            font-size: 18px; font-weight: 700; margin-top: 15px; color: var(--text);
+        }
+
+        .sales-label {
+            font-size: 14px; opacity: 0.6; margin-top: 4px;
+        }
+
+        .middle-number {
+            font-size: 22px; font-weight: 800; fill: var(--primary);
+        }
+
+        /* Hover Blink Animation */
+        .donut-path:hover {
+            animation: blink 0.8s infinite;
+        }
+
+        @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0.6; }
+            100% { opacity: 1; }
+        }
+
+        #debug-msg {
+            position: absolute; top: 20px; background: #ff4757; color: white;
+            padding: 10px 20px; border-radius: 10px; display: none; z-index: 100;
         }
     </style>
 </head>
 <body>
 
-<button class="back-btn" id="backBtn">← Back to Map</button>
-<div id="viz"></div>
+<div id="debug-msg"></div>
+<div id="app">
+    <!-- Cards will be injected here -->
+</div>
 
 <script>
 let worksheet;
-let isZoomed = false;
-const svg = d3.select("#viz").append("svg");
-const mainG = svg.append("g");
 
 window.onload = async () => {
     try {
-        // 1. Initialize
         await tableau.extensions.initializeAsync();
         worksheet = tableau.extensions.worksheetContent.worksheet;
-
-        // 2. Listen for changes
-        worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, loadData);
-
-        // 3. Initial Load
-        loadData();
+        worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, fetchTableauData);
+        fetchTableauData();
     } catch (e) {
-        console.error("Initialization failed", e);
+        console.error("Extension init failed", e);
     }
 };
 
-async function loadData() {
+async function fetchTableauData() {
+    const debug = document.getElementById("debug-msg");
     try {
         const visualSpec = await worksheet.getVisualSpecificationAsync();
         const marksCard = visualSpec.marksSpecifications[visualSpec.activeMarksSpecificationIndex];
         
-        // Map IDs from TREX to actual Field Names
         const encodingMap = {};
-        marksCard.encodings.forEach(e => {
-            encodingMap[e.id] = e.field.name;
-        });
+        marksCard.encodings.forEach(e => encodingMap[e.id] = e.field.name);
 
-        // Check if fields are actually on the shelves
-        if (!encodingMap.state || !encodingMap.sales || !encodingMap.profit) {
-            d3.select("#viz").html(`
-                <div class="error-overlay">
-                    <h2>No Data Found</h2>
-                    <p>Please drag fields to the <b>State, Sales,</b> and <b>Profit</b> shelves on the Marks Card.</p>
-                </div>`);
+        if (!encodingMap.state || !encodingMap.sales) {
+            debug.style.display = "block";
+            debug.innerText = "Setup Required: Drag 'State' and 'Sales' to the Marks Card shelves.";
             return;
         }
+        debug.style.display = "none";
 
         const reader = await worksheet.getSummaryDataReaderAsync();
         const page = await reader.getPageAsync(0);
         
-        // Convert Tableau data to JS objects
         const data = page.data.map(row => {
-            const rowObj = {};
-            page.columns.forEach((col, i) => {
-                rowObj[col.fieldName] = row[i];
-            });
-
+            const rowData = {};
+            page.columns.forEach((col, i) => rowData[col.fieldName] = row[i]);
             return {
-                state: rowObj[encodingMap.state].formattedValue,
-                sales: +rowObj[encodingMap.sales].value,
-                profit: +rowObj[encodingMap.profit].value
+                state: rowData[encodingMap.state].formattedValue,
+                sales: +rowData[encodingMap.sales].value
             };
         });
 
         await reader.releaseAsync();
-        render(data);
-
+        renderCards(data);
     } catch (err) {
-        console.error("Data Load Error:", err);
+        console.error(err);
     }
 }
 
-function render(data) {
-    mainG.selectAll("*").remove();
-    d3.select(".error-overlay").remove();
+function renderCards(data) {
+    const container = d3.select("#app");
+    container.selectAll("*").remove();
 
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    const cols = 8;
-    const spacing = 100;
+    const maxSales = d3.max(data, d => d.sales);
 
-    const hexes = mainG.selectAll(".hex")
-        .data(data)
-        .enter().append("g")
-        .attr("class", "hex")
-        .attr("transform", (d, i) => {
-            const row = Math.floor(i / cols);
-            const x = (i % cols) * spacing + (row % 2 === 0 ? 0 : spacing/2) + 100;
-            const y = row * (spacing * 0.8) + 100;
-            return `translate(${x}, ${y})`;
-        })
-        .on("click", function(e, d) { zoomIn(d3.select(this), d); });
+    data.forEach((d, i) => {
+        const card = container.append("div").attr("class", "donut-card");
+        
+        const svg = card.append("svg").attr("width", 160).attr("height", 160);
+        const g = svg.append("g").attr("transform", "translate(80,80)");
 
-    hexes.append("polygon")
-        .attr("points", getHexPoints(0, 0, 45))
-        .attr("fill", d => d.profit >= 0 ? "#22c55e" : "#ef4444")
-        .attr("stroke", "#061222")
-        .attr("stroke-width", 3);
+        // Donut Logic
+        const radius = 70;
+        const thickness = 12;
+        const arc = d3.arc().innerRadius(radius - thickness).outerRadius(radius).cornerRadius(10);
+        const pie = d3.pie().sort(null).value(val => val);
 
-    hexes.append("text")
-        .attr("text-anchor", "middle")
-        .attr("dy", "5")
-        .attr("fill", "white")
-        .style("font-weight", "bold")
-        .style("pointer-events", "none")
-        .text(d => d.state.substring(0, 2).toUpperCase());
-}
+        // Background Track
+        g.append("path")
+            .datum([100])
+            .attr("d", arc)
+            .attr("fill", "#eceff1");
 
-function zoomIn(element, data) {
-    if (isZoomed) return;
-    isZoomed = true;
-    document.getElementById("backBtn").style.display = "block";
+        // Foreground Arc (Animate this)
+        const foreground = g.append("path")
+            .attr("class", "donut-path")
+            .attr("fill", "#4e79a7");
 
-    const transform = element.attr("transform");
-    const coords = transform.match(/translate\(([^, ]+)[, ]+([^)]+)\)/);
-    const x = +coords[1], y = +coords[2];
+        // Middle Number (Animate this)
+        const text = g.append("text")
+            .attr("class", "middle-number")
+            .attr("text-anchor", "middle")
+            .attr("dy", ".35em")
+            .text("0");
 
-    const scale = 5;
-    const centerX = window.innerWidth / 2;
-    const centerY = window.innerHeight / 2;
+        // Labels
+        card.append("div").attr("class", "state-label").text(d.state);
+        card.append("div").attr("class", "sales-label").text("$" + Math.round(d.sales).toLocaleString());
 
-    gsap.to(mainG.node(), {
-        duration: 0.8,
-        attr: { transform: `translate(${centerX - x * scale}, ${centerY - y * scale}) scale(${scale})` },
-        ease: "power3.inOut"
+        // --- ANIMATIONS ---
+        
+        // 1. Animate Donut
+        const targetValue = (d.sales / maxSales) * 100;
+        foreground.transition()
+            .duration(1500)
+            .delay(i * 100)
+            .ease(d3.easeExpoOut)
+            .attrTween("d", function() {
+                const interpolate = d3.interpolate(0, targetValue);
+                return function(t) {
+                    return arc(pie([interpolate(t), 100 - interpolate(t)])[0]);
+                };
+            });
+
+        // 2. Animate Number Counter
+        let counter = { val: 0 };
+        gsap.to(counter, {
+            val: targetValue,
+            duration: 1.5,
+            delay: (i * 100) / 1000,
+            ease: "expo.out",
+            onUpdate: () => {
+                text.text(Math.round(counter.val) + "%");
+            }
+        });
+
+        // 3. Card Entrance
+        gsap.from(card.node(), {
+            opacity: 0,
+            y: 30,
+            scale: 0.9,
+            duration: 0.8,
+            delay: i * 0.05,
+            ease: "back.out(1.7)"
+        });
     });
-
-    // Create Donut
-    const donutG = element.append("g").attr("class", "donut").attr("opacity", 0);
-    const pieData = [{v: Math.max(0, data.profit), c: "white"}, {v: Math.max(1, data.sales), c: "rgba(255,255,255,0.2)"}];
-    const arc = d3.arc().innerRadius(15).outerRadius(25);
-    const pie = d3.pie().value(d => d.v).sort(null);
-
-    donutG.selectAll("path").data(pie(pieData)).enter()
-        .append("path").attr("d", arc).attr("fill", d => d.data.c);
-
-    gsap.to(donutG.node(), { opacity: 1, duration: 0.4, delay: 0.4 });
-    element.select("text").transition().duration(200).attr("opacity", 0);
-}
-
-document.getElementById("backBtn").onclick = () => {
-    isZoomed = false;
-    document.getElementById("backBtn").style.display = "none";
-    gsap.to(mainG.node(), { duration: 0.8, attr: { transform: "translate(0,0) scale(1)" }, ease: "power3.inOut" });
-    mainG.selectAll(".donut").remove();
-    mainG.selectAll("text").attr("opacity", 1);
-};
-
-function getHexPoints(cx, cy, r) {
-    let p = [];
-    for (let i = 0; i < 6; i++) {
-        const a = (Math.PI / 3) * i - (Math.PI / 6);
-        p.push(`${cx + r * Math.cos(a)},${cy + r * Math.sin(a)}`);
-    }
-    return p.join(" ");
 }
 </script>
 </body>
