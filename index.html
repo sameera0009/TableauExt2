@@ -5,7 +5,7 @@
 
   <meta charset="utf-8"/>
 
-  <title>Hexbin US Map</title>
+  <title>Data Pulse KPI Extension</title>
 
   <script src="https://tableau.github.io/extensions-api/lib/tableau.extensions.1.latest.min.js"></script>
 
@@ -17,7 +17,7 @@
 
 </head>
 
-<body class="bg-gray-950 text-white overflow-hidden">
+<body class="bg-[#050816] text-white overflow-hidden">
 
   <div class="w-full h-screen p-4">
 
@@ -28,32 +28,90 @@
       <div>
 
         <h1 class="text-3xl font-bold">
-          Hexbin US Analytics
+          Data Pulse Analytics
         </h1>
 
         <div class="text-gray-400">
-          Color = Profit | Size = Sales
+          Live Tableau Viz Extension
         </div>
 
       </div>
 
-      <div class="flex gap-2">
+      <div
+        id="status"
+        class="bg-green-500/20 text-green-400 px-4 py-2 rounded-xl">
 
-        <button
-          class="legend-btn bg-green-600 px-3 py-1 rounded-lg"
-          data-range="positive">
+        Connected
 
-          Positive Profit
+      </div>
 
-        </button>
+    </div>
 
-        <button
-          class="legend-btn bg-red-600 px-3 py-1 rounded-lg"
-          data-range="negative">
+    <!-- KPI CARDS -->
 
-          Negative Profit
+    <div class="grid grid-cols-4 gap-4 mb-4">
 
-        </button>
+      <div class="bg-gradient-to-br from-cyan-500 to-blue-700 rounded-2xl p-5 shadow-2xl">
+
+        <div class="text-sm opacity-80">
+          Total Sales
+        </div>
+
+        <div
+          id="salesKpi"
+          class="text-4xl font-bold mt-2">
+
+          0
+
+        </div>
+
+      </div>
+
+      <div class="bg-gradient-to-br from-green-500 to-emerald-700 rounded-2xl p-5 shadow-2xl">
+
+        <div class="text-sm opacity-80">
+          Total Profit
+        </div>
+
+        <div
+          id="profitKpi"
+          class="text-4xl font-bold mt-2">
+
+          0
+
+        </div>
+
+      </div>
+
+      <div class="bg-gradient-to-br from-orange-500 to-red-700 rounded-2xl p-5 shadow-2xl">
+
+        <div class="text-sm opacity-80">
+          Orders
+        </div>
+
+        <div
+          id="ordersKpi"
+          class="text-4xl font-bold mt-2">
+
+          0
+
+        </div>
+
+      </div>
+
+      <div class="bg-gradient-to-br from-purple-500 to-pink-700 rounded-2xl p-5 shadow-2xl">
+
+        <div class="text-sm opacity-80">
+          Avg Profit Ratio
+        </div>
+
+        <div
+          id="ratioKpi"
+          class="text-4xl font-bold mt-2">
+
+          0%
+
+        </div>
 
       </div>
 
@@ -61,70 +119,86 @@
 
     <!-- MAIN GRID -->
 
-    <div class="grid grid-cols-12 gap-4 h-[90vh]">
+    <div class="grid grid-cols-12 gap-4 h-[78vh]">
 
-      <!-- MAP -->
+      <!-- LEFT -->
 
-      <div
-        class="col-span-9 bg-gray-900 rounded-2xl p-4 shadow-2xl">
+      <div class="col-span-8 flex flex-col gap-4">
 
-        <div
-          id="chart"
-          class="w-full h-full">
+        <!-- TOP STATES -->
+
+        <div class="bg-[#0f172a] rounded-2xl p-4 flex-1">
+
+          <div class="flex justify-between items-center mb-3">
+
+            <h2 class="text-xl font-bold">
+              Top States by Sales
+            </h2>
+
+            <div class="text-gray-400 text-sm">
+              Bubble Size = Sales
+            </div>
+
+          </div>
+
+          <div
+            id="bubbleChart"
+            class="w-full h-[320px]">
+          </div>
+
+        </div>
+
+        <!-- TREND -->
+
+        <div class="bg-[#0f172a] rounded-2xl p-4 flex-1">
+
+          <div class="flex justify-between items-center mb-3">
+
+            <h2 class="text-xl font-bold">
+              Profit Distribution
+            </h2>
+
+          </div>
+
+          <div
+            id="barChart"
+            class="w-full h-[320px]">
+          </div>
+
         </div>
 
       </div>
 
-      <!-- RIGHT PANEL -->
+      <!-- RIGHT -->
 
-      <div class="col-span-3 flex flex-col gap-4">
+      <div class="col-span-4 flex flex-col gap-4">
 
-        <!-- DETAIL -->
+        <!-- TOP PERFORMERS -->
 
-        <div
-          id="detailPanel"
-          class="bg-gray-900 rounded-2xl p-4">
+        <div class="bg-[#0f172a] rounded-2xl p-4">
 
-          <h2 class="text-xl font-bold mb-3">
-            State Details
-          </h2>
-
-          <div
-            id="selectedState"
-            class="text-3xl font-bold text-cyan-400">
-
-            Select State
-
-          </div>
-
-          <div class="mt-4 space-y-2">
-
-            <div>
-              Sales:
-              <span id="salesValue">-</span>
-            </div>
-
-            <div>
-              Profit:
-              <span id="profitValue">-</span>
-            </div>
-
-          </div>
-
-        </div>
-
-        <!-- TOP STATES -->
-
-        <div
-          class="bg-gray-900 rounded-2xl p-4 flex-1">
-
-          <h2 class="text-xl font-bold mb-3">
+          <h2 class="text-xl font-bold mb-4">
             Top Performers
           </h2>
 
           <div
-            id="topStates"
-            class="space-y-2">
+            id="topPerformers"
+            class="space-y-3">
+          </div>
+
+        </div>
+
+        <!-- INSIGHTS -->
+
+        <div class="bg-[#0f172a] rounded-2xl p-4 flex-1">
+
+          <h2 class="text-xl font-bold mb-4">
+            Smart Insights
+          </h2>
+
+          <div
+            id="insights"
+            class="space-y-4 text-sm">
           </div>
 
         </div>
@@ -138,23 +212,6 @@
   <script>
 
     let worksheet;
-    let chart;
-
-    const stateCoords = {
-
-      "Washington": [80, 70],
-      "Oregon": [80, 120],
-      "California": [80, 220],
-      "Nevada": [150, 180],
-      "Arizona": [170, 260],
-      "Texas": [320, 320],
-      "Colorado": [240, 190],
-      "Florida": [520, 360],
-      "New York": [540, 120],
-      "Illinois": [380, 180],
-      "Georgia": [470, 300]
-
-    };
 
     async function init() {
 
@@ -165,12 +222,7 @@
         worksheet =
           tableau.extensions.worksheetContent.worksheet;
 
-        console.log("Initialized");
-
-        chart =
-          echarts.init(
-            document.getElementById("chart")
-          );
+        console.log("Connected");
 
         await loadData();
 
@@ -183,45 +235,14 @@
 
         console.error(err);
 
-        document.body.innerHTML =
-          `<div style="color:red;padding:20px">
-            ${err}
-          </div>`;
+        document.getElementById("status")
+          .innerHTML = "Connection Failed";
       }
-    }
-
-    async function getEncodingMap() {
-
-      const visualSpec =
-        await worksheet.getVisualSpecificationAsync();
-
-      const marksCard =
-        visualSpec.marksSpecifications[
-          visualSpec.activeMarksSpecificationIndex
-        ];
-
-      const encodingMap = {};
-
-      marksCard.encodings.forEach(e => {
-
-        if (e.fields.length > 0) {
-
-          encodingMap[e.id] =
-            e.fields[0].field.name;
-        }
-      });
-
-      return encodingMap;
     }
 
     async function loadData() {
 
       try {
-
-        const encodingMap =
-          await getEncodingMap();
-
-        console.log("Encodings:", encodingMap);
 
         const reader =
           await worksheet.getSummaryDataReaderAsync();
@@ -237,13 +258,13 @@
 
         const data = [];
 
-        rows.forEach(row => {
+        rows.forEach(r => {
 
           const obj = {};
 
           columns.forEach((c, i) => {
 
-            obj[c] = row[i].value;
+            obj[c] = r[i].value;
           });
 
           data.push(obj);
@@ -251,9 +272,7 @@
 
         console.log(data);
 
-        renderChart(data, encodingMap);
-
-        renderTopStates(data, encodingMap);
+        processData(data);
 
       } catch (err) {
 
@@ -261,76 +280,168 @@
       }
     }
 
-    function renderChart(data, encodingMap) {
+    function findField(columns, names) {
 
-      const mapData = [];
+      return columns.find(c =>
+
+        names.some(n =>
+          c.toLowerCase().includes(n)
+        )
+      );
+    }
+
+    function processData(data) {
+
+      if (!data.length) return;
+
+      const cols =
+        Object.keys(data[0]);
+
+      const salesField =
+        findField(cols, ["sales"]);
+
+      const profitField =
+        findField(cols, ["profit"]);
+
+      const stateField =
+        findField(cols, ["state"]);
+
+      const orderField =
+        findField(cols, ["order"]);
+
+      console.log({
+        salesField,
+        profitField,
+        stateField
+      });
+
+      let totalSales = 0;
+      let totalProfit = 0;
+
+      const stateAgg = {};
 
       data.forEach(d => {
 
+        const sales =
+          Number(d[salesField]) || 0;
+
+        const profit =
+          Number(d[profitField]) || 0;
+
         const state =
-          d[encodingMap.state];
+          d[stateField] || "Unknown";
 
-        if (!stateCoords[state]) return;
+        totalSales += sales;
+        totalProfit += profit;
 
-        const coords =
-          stateCoords[state];
+        if (!stateAgg[state]) {
 
-        mapData.push({
+          stateAgg[state] = {
 
-          value: coords,
+            sales: 0,
+            profit: 0
+          };
+        }
 
-          state: state,
-
-          sales:
-            d[encodingMap.sales] || 0,
-
-          profit:
-            d[encodingMap.profit] || 0,
-
-          symbolSize:
-            Math.sqrt(
-              d[encodingMap.sales] || 1
-            ) / 5,
-
-          itemStyle: {
-
-            color:
-
-              d[encodingMap.profit] >= 0
-                ? "#22c55e"
-                : "#ef4444"
-          }
-        });
+        stateAgg[state].sales += sales;
+        stateAgg[state].profit += profit;
       });
 
-      const option = {
+      updateKpis(
+        totalSales,
+        totalProfit,
+        data.length
+      );
 
-        backgroundColor: "#111827",
+      renderBubble(stateAgg);
 
-        tooltip: {
+      renderBar(stateAgg);
 
-          formatter: (params) => {
+      renderTop(stateAgg);
 
-            const d = params.data;
+      renderInsights(
+        totalSales,
+        totalProfit,
+        stateAgg
+      );
+    }
 
-            return `
-              <b>${d.state}</b><br/>
-              Sales: ${Number(d.sales).toLocaleString()}<br/>
-              Profit: ${Number(d.profit).toLocaleString()}
-            `;
-          }
-        },
+    function updateKpis(
+      sales,
+      profit,
+      orders
+    ) {
+
+      document.getElementById(
+        "salesKpi"
+      ).innerText =
+        "$" + Math.round(sales).toLocaleString();
+
+      document.getElementById(
+        "profitKpi"
+      ).innerText =
+        "$" + Math.round(profit).toLocaleString();
+
+      document.getElementById(
+        "ordersKpi"
+      ).innerText =
+        orders.toLocaleString();
+
+      const ratio =
+        ((profit / sales) * 100)
+        .toFixed(1);
+
+      document.getElementById(
+        "ratioKpi"
+      ).innerText =
+        ratio + "%";
+
+      gsap.from(
+        ".text-4xl",
+        {
+          duration: 1,
+          y: 20,
+          opacity: 0,
+          stagger: 0.1
+        }
+      );
+    }
+
+    function renderBubble(stateAgg) {
+
+      const chart =
+        echarts.init(
+          document.getElementById(
+            "bubbleChart"
+          )
+        );
+
+      const data =
+        Object.entries(stateAgg)
+          .map(([k, v]) => ({
+
+            name: k,
+
+            value: [
+              v.sales,
+              v.profit,
+              v.sales
+            ]
+          }))
+          .slice(0, 20);
+
+      chart.setOption({
+
+        backgroundColor: "transparent",
+
+        tooltip: {},
 
         xAxis: {
-          show: false,
-          min: 0,
-          max: 650
+          name: "Sales"
         },
 
         yAxis: {
-          show: false,
-          min: 0,
-          max: 450
+          name: "Profit"
         },
 
         series: [
@@ -339,104 +450,130 @@
 
             type: "scatter",
 
-            symbol: "hexagon",
+            symbolSize: d =>
+              Math.sqrt(d[2]) / 12,
 
-            data: mapData,
+            data: data,
 
             emphasis: {
-
-              scale: true
+              focus: "series"
             }
           }
         ]
-      };
-
-      chart.setOption(option);
-
-      chart.off("click");
-
-      chart.on("click", params => {
-
-        const d = params.data;
-
-        updateDetailPanel(d);
-      });
-
-      gsap.from("#chart", {
-
-        duration: 1,
-
-        opacity: 0,
-
-        y: 20
       });
     }
 
-    function updateDetailPanel(d) {
+    function renderBar(stateAgg) {
 
-      document.getElementById(
-        "selectedState"
-      ).innerText = d.state;
+      const chart =
+        echarts.init(
+          document.getElementById(
+            "barChart"
+          )
+        );
 
-      document.getElementById(
-        "salesValue"
-      ).innerText =
-        Number(d.sales).toLocaleString();
+      const sorted =
+        Object.entries(stateAgg)
+          .sort((a, b) =>
 
-      document.getElementById(
-        "profitValue"
-      ).innerText =
-        Number(d.profit).toLocaleString();
+            b[1].profit -
+            a[1].profit
+          )
+          .slice(0, 10);
 
-      gsap.from("#detailPanel", {
+      chart.setOption({
 
-        duration: 0.5,
+        backgroundColor: "transparent",
 
-        x: 20,
+        tooltip: {},
 
-        opacity: 0
+        xAxis: {
+
+          type: "category",
+
+          data:
+            sorted.map(x => x[0]),
+
+          axisLabel: {
+
+            rotate: 25
+          }
+        },
+
+        yAxis: {
+
+          type: "value"
+        },
+
+        series: [
+
+          {
+
+            type: "bar",
+
+            data:
+              sorted.map(
+                x => x[1].profit
+              ),
+
+            barWidth: "55%"
+          }
+        ]
       });
     }
 
-    function renderTopStates(data, encodingMap) {
+    function renderTop(stateAgg) {
 
       const container =
-        document.getElementById("topStates");
+        document.getElementById(
+          "topPerformers"
+        );
 
       container.innerHTML = "";
 
       const sorted =
-        [...data]
+        Object.entries(stateAgg)
           .sort((a, b) =>
 
-            (b[encodingMap.profit] || 0)
-            -
-            (a[encodingMap.profit] || 0)
+            b[1].sales -
+            a[1].sales
           )
           .slice(0, 5);
 
-      sorted.forEach((d, i) => {
+      sorted.forEach((x, i) => {
 
         const div =
           document.createElement("div");
 
         div.className =
-          "bg-gray-800 p-3 rounded-xl";
+          "bg-[#1e293b] p-4 rounded-xl";
 
         div.innerHTML = `
 
           <div class="flex justify-between">
 
-            <span>
-              #${i + 1}
-              ${d[encodingMap.state]}
-            </span>
+            <div>
 
-            <span>
-              ${Number(
-                d[encodingMap.profit]
+              <div class="font-bold">
+                #${i + 1} ${x[0]}
+              </div>
+
+              <div class="text-gray-400 text-sm">
+                Profit:
+                $${Math.round(
+                  x[1].profit
+                ).toLocaleString()}
+              </div>
+
+            </div>
+
+            <div class="text-cyan-400 font-bold">
+
+              $${Math.round(
+                x[1].sales
               ).toLocaleString()}
-            </span>
+
+            </div>
 
           </div>
         `;
@@ -445,20 +582,93 @@
       });
     }
 
-    document
-      .querySelectorAll(".legend-btn")
-      .forEach(btn => {
+    function renderInsights(
+      sales,
+      profit,
+      stateAgg
+    ) {
 
-        btn.addEventListener(
-          "click",
-          () => {
-
-            console.log(
-              btn.dataset.range
-            );
-          }
+      const container =
+        document.getElementById(
+          "insights"
         );
-      });
+
+      container.innerHTML = "";
+
+      const best =
+        Object.entries(stateAgg)
+          .sort((a, b) =>
+
+            b[1].profit -
+            a[1].profit
+          )[0];
+
+      const worst =
+        Object.entries(stateAgg)
+          .sort((a, b) =>
+
+            a[1].profit -
+            b[1].profit
+          )[0];
+
+      const insights = [
+
+        `
+          <div class="bg-[#1e293b] p-4 rounded-xl">
+            <div class="font-bold text-green-400">
+              Best Performing State
+            </div>
+
+            <div class="mt-2">
+              ${best[0]}
+            </div>
+
+            <div class="text-gray-400">
+              Profit:
+              $${Math.round(
+                best[1].profit
+              ).toLocaleString()}
+            </div>
+          </div>
+        `,
+
+        `
+          <div class="bg-[#1e293b] p-4 rounded-xl">
+            <div class="font-bold text-red-400">
+              Lowest Performing State
+            </div>
+
+            <div class="mt-2">
+              ${worst[0]}
+            </div>
+
+            <div class="text-gray-400">
+              Profit:
+              $${Math.round(
+                worst[1].profit
+              ).toLocaleString()}
+            </div>
+          </div>
+        `,
+
+        `
+          <div class="bg-[#1e293b] p-4 rounded-xl">
+            <div class="font-bold text-cyan-400">
+              Profit Margin
+            </div>
+
+            <div class="mt-2 text-2xl font-bold">
+              ${(
+                (profit / sales) * 100
+              ).toFixed(2)}%
+            </div>
+          </div>
+        `
+      ];
+
+      container.innerHTML =
+        insights.join("");
+    }
 
     init();
 
